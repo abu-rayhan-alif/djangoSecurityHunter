@@ -39,6 +39,7 @@ jobs:
           djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
 
       - name: Upload SARIF to GitHub Security
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/djangoguard.sarif
