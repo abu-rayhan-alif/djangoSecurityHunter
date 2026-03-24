@@ -1,0 +1,10 @@
+services:
+  djangoguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: djangoguard:local
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: djangoguard scan --project /app --format console
