@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
 jobs:
   test-and-scan:
     runs-on: ubuntu-latest
@@ -34,6 +39,6 @@ jobs:
           djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/djangoguard.sarif
