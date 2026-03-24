@@ -1,0 +1,9 @@
+* text=auto
+
+# Keep common source/docs as LF in repo
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
