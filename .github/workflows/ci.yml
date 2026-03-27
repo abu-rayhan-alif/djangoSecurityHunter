@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read
 
 jobs:
   test-and-scan:
@@ -51,6 +52,7 @@ jobs:
           djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
 
       - name: Upload SARIF
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: reports/djangoguard.sarif
