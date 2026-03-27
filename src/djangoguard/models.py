@@ -40,11 +40,12 @@ class Report:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        sorted_findings = self.sorted_findings()
         return {
             "mode": self.mode,
             "generated_at": self.generated_at,
             "metadata": self.metadata,
-            "findings": [finding.to_dict() for finding in self.findings],
+            "findings": [finding.to_dict() for finding in sorted_findings],
         }
 
     def has_threshold_hit(self, threshold: str) -> bool:
@@ -53,3 +54,16 @@ class Report:
             SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
             for finding in self.findings
         )
+
+    def sorted_findings(self) -> list[Finding]:
+        def sort_key(f: Finding) -> tuple[int, str, str, int]:
+            severity_value = SEVERITY_ORDER.get(f.severity.upper(), 0)
+            # Higher severity first -> negate for descending
+            return (
+                -severity_value,
+                f.rule_id,
+                f.path or "",
+                f.line or 0,
+            )
+
+        return sorted(self.findings, key=sort_key)

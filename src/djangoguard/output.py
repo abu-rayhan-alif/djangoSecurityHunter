@@ -7,15 +7,16 @@ from .models import Report
 
 
 def as_console(report: Report) -> str:
-    lines = [
+    lines: list[str] = [
         f"djangoguard report ({report.mode})",
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
-    if not report.findings:
+    findings = report.sorted_findings()
+    if not findings:
         lines.append("No findings.")
     else:
-        for finding in report.findings:
+        for finding in findings:
             location = ""
             if finding.path:
                 location = f" [{finding.path}"
@@ -40,7 +41,7 @@ def as_sarif(report: Report) -> str:
     seen_ids: set[str] = set()
     results: list[dict[str, Any]] = []
 
-    for finding in report.findings:
+    for finding in report.sorted_findings():
         if finding.rule_id not in seen_ids:
             seen_ids.add(finding.rule_id)
             rules.append(
