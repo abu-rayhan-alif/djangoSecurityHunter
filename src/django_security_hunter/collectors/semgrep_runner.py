@@ -9,8 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from djsecinspect.limits import MAX_FINDINGS_PER_SCANNER, MAX_SCANNER_JSON_BYTES
-from djsecinspect.models import Finding
+from django_security_hunter.limits import MAX_FINDINGS_PER_SCANNER, MAX_SCANNER_JSON_BYTES
+from django_security_hunter.models import Finding
 
 _TIMEOUT_SEC = 600
 
@@ -148,4 +148,5 @@ def run_semgrep(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
         "exit_code": proc.returncode,
         "finding_count": len(findings),
     }
+
 

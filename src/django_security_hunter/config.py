@@ -52,21 +52,12 @@ def _read_toml(path: Path) -> dict:
 
 def load_config(project_root: Path) -> GuardConfig:
     pyproject = _read_toml(project_root / "pyproject.toml")
-    legacy_guard = _read_toml(project_root / "djangoguard.toml")
-    legacy_audit = _read_toml(project_root / "djangoaudit.toml")
-    local = _read_toml(project_root / "djsecinspect.toml")
+    local = _read_toml(project_root / "django_security_hunter.toml")
 
     config_data: dict = {}
     tool = pyproject.get("tool") if isinstance(pyproject.get("tool"), dict) else {}
-    if isinstance(tool, dict):
-        if "djangoguard" in tool:
-            config_data.update(tool["djangoguard"])
-        if "djangoaudit" in tool:
-            config_data.update(tool["djangoaudit"])
-        if "djsecinspect" in tool:
-            config_data.update(tool["djsecinspect"])
-    config_data.update(legacy_guard)
-    config_data.update(legacy_audit)
+    if isinstance(tool, dict) and "django_security_hunter" in tool:
+        config_data.update(tool["django_security_hunter"])
     config_data.update(local)
 
     sev = str(config_data.get("severity_threshold", "WARN")).strip().upper()
@@ -89,4 +80,5 @@ def load_config(project_root: Path) -> GuardConfig:
             config_data.get("enable_semgrep", False), False
         ),
     )
+
 

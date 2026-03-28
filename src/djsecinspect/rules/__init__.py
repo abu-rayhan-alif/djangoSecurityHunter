@@ -1,3 +1,0 @@
-﻿"""Rule implementations for djsecinspect."""
-
-

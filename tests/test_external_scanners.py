@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from djsecinspect.collectors.bandit_runner import findings_from_bandit_json
-from djsecinspect.collectors.pip_audit_runner import findings_from_pip_audit_json
-from djsecinspect.collectors.semgrep_runner import findings_from_semgrep_json
-from djsecinspect.config import GuardConfig
-from djsecinspect.engine import run_scan
-from djsecinspect.models import Finding
+from django_security_hunter.collectors.bandit_runner import findings_from_bandit_json
+from django_security_hunter.collectors.pip_audit_runner import findings_from_pip_audit_json
+from django_security_hunter.collectors.semgrep_runner import findings_from_semgrep_json
+from django_security_hunter.config import GuardConfig
+from django_security_hunter.engine import run_scan
+from django_security_hunter.models import Finding
 
 
 def test_pip_audit_maps_high_and_critical_only() -> None:
@@ -105,7 +105,7 @@ def test_semgrep_maps_result() -> None:
 def test_run_scan_with_pip_audit_enabled_invokes_runner(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from djsecinspect.collectors import pip_audit_runner
+    from django_security_hunter.collectors import pip_audit_runner
 
     def fake(_root: Path) -> tuple[list[Finding], dict]:
         return (
@@ -132,4 +132,5 @@ def test_run_scan_with_pip_audit_enabled_invokes_runner(
     assert report.metadata.get("integrations", {}).get("pip_audit", {}).get(
         "status"
     ) == "ok"
+
 

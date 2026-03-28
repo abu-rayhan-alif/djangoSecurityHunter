@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from djsecinspect.rules import django_settings as django_settings_rules
+from django_security_hunter.rules import django_settings as django_settings_rules
 
 _GOOD_SECRET_KEY = "".join(f"{i:02x}" for i in range(25))  # 50 hex chars, mixed
 _GOOD_ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
@@ -380,7 +380,7 @@ def test_scan_fixture_project_reports_djg001() -> None:
 
     code = f"""
 from pathlib import Path
-from djsecinspect.engine import run_scan
+from django_security_hunter.engine import run_scan
 root = Path({str(fix)!r})
 report = run_scan(root, "mysite.settings")
 ids = [f.rule_id for f in report.findings]
@@ -395,4 +395,5 @@ assert "DJG001" in ids, ids
         check=False,
     )
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
+
 

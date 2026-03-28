@@ -2,11 +2,12 @@
 
 from typing import Iterable
 
-from djsecinspect.models import Finding
+from django_security_hunter.models import Finding
 
 
 def run_concurrency_rules() -> Iterable[Finding]:
     """DJG-7 placeholder. Returns findings when implemented."""
     return []
+
 
 

@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from djsecinspect.collectors import bandit_runner, pip_audit_runner, semgrep_runner
-from djsecinspect.config import GuardConfig
-from djsecinspect.models import Finding
+from django_security_hunter.collectors import bandit_runner, pip_audit_runner, semgrep_runner
+from django_security_hunter.config import GuardConfig
+from django_security_hunter.models import Finding
 
 
 def run_external_integration_findings(
@@ -39,4 +39,5 @@ def run_external_integration_findings(
         integrations["semgrep"] = {"enabled": False, "status": "skipped"}
 
     return findings, integrations
+
 

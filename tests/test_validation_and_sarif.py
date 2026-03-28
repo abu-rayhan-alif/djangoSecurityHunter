@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from djsecinspect.collectors.settings_loader import load_settings_context
-from djsecinspect.models import Finding, Report
-from djsecinspect.output import _sarif_artifact_uri, as_sarif
-from djsecinspect.validation import is_valid_django_settings_module
+from django_security_hunter.collectors.settings_loader import load_settings_context
+from django_security_hunter.models import Finding, Report
+from django_security_hunter.output import _sarif_artifact_uri, as_sarif
+from django_security_hunter.validation import is_valid_django_settings_module
 
 
 def test_settings_module_rejects_injection_like_values() -> None:
@@ -52,4 +52,5 @@ def test_sarif_report_has_safe_uris() -> None:
     data = json.loads(as_sarif(report))
     loc = data["runs"][0]["results"][0]["locations"][0]["physicalLocation"]
     assert loc["artifactLocation"]["uri"] == "b.py"
+
 

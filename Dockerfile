@@ -10,5 +10,6 @@ COPY src ./src
 
 RUN pip install --no-cache-dir -e .
 
-CMD ["djsecinspect", "scan", "--project", "/app", "--format", "console"]
+CMD ["django_security_hunter", "scan", "--project", "/app", "--format", "console"]
+
 

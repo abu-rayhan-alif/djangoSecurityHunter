@@ -1,10 +1,11 @@
 ﻿from __future__ import annotations
 
-from djsecinspect.models import Report
-from djsecinspect.output import as_sarif
+from django_security_hunter.models import Report
+from django_security_hunter.output import as_sarif
 
 
 def write_sarif(report: Report) -> str:
     return as_sarif(report)
+
 
 

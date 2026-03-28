@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from djsecinspect.validation import is_valid_django_settings_module
+from django_security_hunter.validation import is_valid_django_settings_module
 
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:
@@ -127,4 +127,5 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
                 sys.path.remove(root_str)
             except ValueError:
                 pass
+
 

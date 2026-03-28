@@ -44,7 +44,7 @@ def _sarif_artifact_uri(path: str | None) -> str | None:
 
 def as_console(report: Report) -> str:
     lines: list[str] = [
-        f"djsecinspect report ({report.mode})",
+        f"django_security_hunter report ({report.mode})",
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
@@ -116,7 +116,7 @@ def as_sarif(report: Report) -> str:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "djsecinspect", "rules": rules}},
+                "tool": {"driver": {"name": "django_security_hunter", "rules": rules}},
                 "results": results,
             }
         ],
@@ -131,4 +131,5 @@ def _sarif_level(severity: str) -> str:
     if normalized == "WARN":
         return "warning"
     return "note"
+
 
