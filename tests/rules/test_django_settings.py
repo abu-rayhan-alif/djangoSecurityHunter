@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import subprocess
@@ -31,6 +31,9 @@ def _ctx(**overrides: object) -> dict:
         "cors_allow_all_origins": False,
         "cors_allowed_origins": [],
         "cors_allowed_origin_regexes": [],
+        "data_upload_max_memory_size": 2_621_440,
+        "file_upload_max_memory_size": 2_621_440,
+        "data_upload_max_number_fields": 1_000,
     }
     base.update(overrides)
     return base
@@ -358,6 +361,33 @@ def test_djg012_cors_http_origin_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     findings = list(django_settings_rules.run_django_settings_rules(Path("."), "x"))
     assert [f.rule_id for f in findings] == ["DJG012"]
     assert findings[0].severity == "WARN"
+
+
+def test_djg026_warn_when_upload_limits_high(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        django_settings_rules,
+        "load_settings_context",
+        lambda _p, _s: _ctx(
+            debug=False,
+            data_upload_max_memory_size=20 * 1024 * 1024,
+        ),
+    )
+    findings = list(django_settings_rules.run_django_settings_rules(Path("."), "x"))
+    djg026 = [f for f in findings if f.rule_id == "DJG026"]
+    assert len(djg026) == 1
+    assert djg026[0].severity == "WARN"
+    assert "DATA_UPLOAD_MAX_MEMORY_SIZE" in djg026[0].message
+    assert "DATA_UPLOAD_MAX_MEMORY_SIZE =" in (djg026[0].fix_hint or "")
+
+
+def test_djg026_no_finding_when_limits_conservative(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        django_settings_rules,
+        "load_settings_context",
+        lambda _p, _s: _ctx(debug=False),
+    )
+    findings = list(django_settings_rules.run_django_settings_rules(Path("."), "x"))
+    assert not any(f.rule_id == "DJG026" for f in findings)
 
 
 def test_skips_when_settings_not_loaded(monkeypatch: pytest.MonkeyPatch) -> None:

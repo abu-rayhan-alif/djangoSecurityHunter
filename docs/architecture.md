@@ -1,4 +1,4 @@
-﻿# django_security_hunter Architecture
+# django_security_hunter Architecture
 
 This document explains the current architecture of `django_security_hunter` and the intended evolution path for V1.
 

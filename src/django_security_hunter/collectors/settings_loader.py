@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from django_security_hunter.validation import is_valid_django_settings_module
+
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:
     raw = getattr(settings, name, None)
@@ -106,6 +108,14 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
     if not module:
         base["skip_reason"] = "no_settings_module"
         return base
+
+    if not is_valid_django_settings_module(module):
+        return {
+            "project_root": str(root),
+            "settings_module": None,
+            "loaded": False,
+            "skip_reason": "invalid_settings_module",
+        }
 
     root_str = str(root)
     path_inserted = False

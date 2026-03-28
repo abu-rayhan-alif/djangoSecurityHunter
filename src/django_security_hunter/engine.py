@@ -5,12 +5,11 @@ from pathlib import Path
 from .config import GuardConfig, load_config
 from .models import Report
 from .rules.concurrency import run_concurrency_rules
-from .rules.dependency_audit import run_dependency_audit_rules
 from .rules.django_settings import run_django_settings_scan
 from .rules.authz_heuristics import run_authz_heuristic_rules
 from .rules.drf_auth_urls import run_drf_auth_url_rules
 from .rules.drf_security import run_drf_security_rules
-from .rules.external_scanners import run_external_scanner_rules
+from .rules.external_integrations import run_external_integration_findings
 from .rules.model_integrity import run_model_integrity_rules
 from .rules.profiling import run_profiling_rules
 from .rules.static_patterns import run_static_pattern_rules
@@ -31,14 +30,18 @@ def run_scan(
     findings.extend(run_static_pattern_rules(project_root, cfg))
     findings.extend(run_model_integrity_rules(project_root, cfg))
     findings.extend(run_concurrency_rules(project_root, cfg))
-    findings.extend(run_dependency_audit_rules(project_root, cfg))
-    findings.extend(run_external_scanner_rules(project_root, cfg))
+
+    ext_findings, integrations_meta = run_external_integration_findings(
+        project_root, cfg
+    )
+    findings.extend(ext_findings)
 
     metadata: dict = {
         "project_root": str(project_root),
         "settings_module": settings_module,
         "runner": "django-settings-scan",
         "django_settings_loaded": bool(dj_ctx.get("loaded")),
+        "integrations": integrations_meta,
     }
     err_detail: str | None = None
     if not dj_ctx.get("loaded"):

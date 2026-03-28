@@ -1,4 +1,4 @@
-﻿"""Minimal Django settings for DJG001 integration test (DEBUG=True)."""
+"""Minimal Django settings for DJG001 integration test (DEBUG=True)."""
 
 DEBUG = True
 SECRET_KEY = "test-secret-key-for-django_security_hunter-tests-not-for-production"

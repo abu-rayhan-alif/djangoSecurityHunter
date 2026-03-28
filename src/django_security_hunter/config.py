@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass, field
 from pathlib import Path
 import tomllib
 
+from .limits import MAX_TOML_CONFIG_BYTES
 from .models import VALID_SEVERITY_THRESHOLDS
 
 
@@ -28,11 +30,18 @@ class GuardConfig:
     semgrep: bool = False
 
 
-def _safe_int(value: object, default: int) -> int:
+def _safe_int(
+    value: object,
+    default: int,
+    *,
+    min_value: int = 0,
+    max_value: int = 2**31 - 1,
+) -> int:
     try:
-        return int(value)  # type: ignore[arg-type]
+        n = int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return default
+    return max(min_value, min(max_value, n))
 
 
 def _safe_bool(value: object, default: bool = False) -> bool:
@@ -41,15 +50,41 @@ def _safe_bool(value: object, default: bool = False) -> bool:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return value != 0
     if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
+        s = value.strip().lower()
+        if s in ("1", "true", "yes", "on"):
+            return True
+        if s in ("0", "false", "no", "off"):
+            return False
     return default
 
 
 def _read_toml(path: Path) -> dict:
     if not path.exists():
         return {}
-    with path.open("rb") as f:
-        return tomllib.load(f)
+    try:
+        with path.open("rb") as f:
+            data = f.read(MAX_TOML_CONFIG_BYTES + 1)
+    except OSError:
+        return {}
+    if len(data) > MAX_TOML_CONFIG_BYTES:
+        return {}
+    try:
+        return tomllib.load(io.BytesIO(data))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return {}
+
+
+def _bool_from_config(
+    config_data: dict,
+    primary: str,
+    alias: str,
+    default: bool = False,
+) -> bool:
+    if primary in config_data:
+        return _safe_bool(config_data.get(primary), default)
+    if alias in config_data:
+        return _safe_bool(config_data.get(alias), default)
+    return default
 
 
 def load_config(project_root: Path) -> GuardConfig:
@@ -90,8 +125,13 @@ def load_config(project_root: Path) -> GuardConfig:
             config_data.get("model_integrity_ignore_models")
         ),
         djg051_high_save_threshold=high_saves,
-        pip_audit=_safe_bool(config_data.get("pip_audit", False), False),
-        bandit=_safe_bool(config_data.get("bandit", False), False),
-        semgrep=_safe_bool(config_data.get("semgrep", False), False),
+        pip_audit=_bool_from_config(
+            config_data, "pip_audit", "enable_pip_audit", False
+        ),
+        bandit=_bool_from_config(
+            config_data, "bandit", "enable_bandit", False
+        ),
+        semgrep=_bool_from_config(
+            config_data, "semgrep", "enable_semgrep", False
+        ),
     )
-

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Iterable
@@ -11,6 +11,10 @@ _MIN_SECRET_KEY_LEN = 40
 
 # One year — common production minimum / HSTS preload guidance
 _HSTS_RECOMMENDED_SECONDS = 31_536_000
+
+# Conservative caps for best-effort upload / DoS heuristics (DJG026)
+_DJG026_WARN_MEMORY_BYTES = 10 * 1024 * 1024
+_DJG026_WARN_MAX_FIELDS = 5000
 
 _WEAK_SECRET_KEYS = frozenset(
     {
@@ -439,6 +443,67 @@ def _djg012_cors_permissive_allowlist(ctx: dict) -> list[Finding]:
     ]
 
 
+def _djg026_request_upload_limits(ctx: dict) -> list[Finding]:
+    if not ctx.get("loaded"):
+        return []
+    if ctx.get("debug"):
+        return []
+    du = ctx.get("data_upload_max_memory_size")
+    fu = ctx.get("file_upload_max_memory_size")
+    nf = ctx.get("data_upload_max_number_fields")
+    if not isinstance(du, int):
+        du = 2_621_440
+    if not isinstance(fu, int):
+        fu = 2_621_440
+    if not isinstance(nf, int):
+        nf = 1_000
+
+    parts: list[str] = []
+    if du > _DJG026_WARN_MEMORY_BYTES:
+        parts.append(
+            f"DATA_UPLOAD_MAX_MEMORY_SIZE={du} bytes exceeds {_DJG026_WARN_MEMORY_BYTES} "
+            "(10 MiB) — large in-memory request bodies increase DoS and memory pressure."
+        )
+    if fu > _DJG026_WARN_MEMORY_BYTES:
+        parts.append(
+            f"FILE_UPLOAD_MAX_MEMORY_SIZE={fu} bytes exceeds {_DJG026_WARN_MEMORY_BYTES} "
+            "(10 MiB)."
+        )
+    if nf > _DJG026_WARN_MAX_FIELDS:
+        parts.append(
+            f"DATA_UPLOAD_MAX_NUMBER_FIELDS={nf} exceeds {_DJG026_WARN_MAX_FIELDS} — "
+            "very high field counts enable expensive form parsing."
+        )
+
+    if not parts:
+        return []
+
+    return [
+        Finding(
+            rule_id="DJG026",
+            severity="WARN",
+            title="HTTP upload / request parsing limits are high (best-effort)",
+            message=(
+                "Heuristic: effective Django upload settings vs conservative thresholds. "
+                "Limitations: cannot tell if values were omitted in source (Django applies "
+                "defaults); ignores reverse-proxy or WSGI body limits; tune per deployment. "
+                "Issues: " + " ".join(parts)
+            ),
+            fix_hint=(
+                "Tighten limits in settings (adjust numbers to your traffic and proxies):\n\n"
+                "# Cap in-memory request bodies and uploaded file buffering\n"
+                "DATA_UPLOAD_MAX_MEMORY_SIZE = 2_621_440  # 2.5 MiB (Django default)\n"
+                "FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440\n"
+                "# Cap number of POST fields / files per request\n"
+                "DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000  # Django default\n\n"
+                "Related API controls (Django REST Framework): set "
+                "DEFAULT_PERMISSION_CLASSES, DEFAULT_AUTHENTICATION_CLASSES, and "
+                "DEFAULT_THROTTLE_CLASSES in REST_FRAMEWORK as in DJG020-DJG022.\n"
+            ),
+        )
+    ]
+
+
 def run_django_settings_scan(
     project_root: Path, settings_module: str | None = None
 ) -> tuple[list[Finding], dict[str, Any]]:
@@ -458,6 +523,8 @@ def run_django_settings_scan(
     findings.extend(_djg010_csrf_trusted_origins(ctx))
     findings.extend(_djg011_cors_allow_all(ctx))
     findings.extend(_djg012_cors_permissive_allowlist(ctx))
+    findings.extend(_djg026_request_upload_limits(ctx))
+    ctx.pop("secret_key", None)
     return findings, ctx
 
 
