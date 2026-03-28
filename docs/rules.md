@@ -99,6 +99,10 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 ---
 
+## Report output (DJG-9)
+
+JSON reports include `schema_version` (`djangoguard.report.v1`) and `tool.name` / `tool.version` for stable automation. SARIF output is **v2.1.0** with `tool.driver.rules`, `results[].ruleIndex`, and `columnKind` for GitHub Code Scanning. See the repository **README** for CLI and CI examples.
+
 ## Design Principles for Rule Authors
 
 1. Rule IDs are stable and never reused for different semantics.

@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from .package_meta import REPORT_JSON_SCHEMA_VERSION, package_version
 
 SEVERITY_ORDER = {
     "INFO": 10,
@@ -70,6 +71,8 @@ class Report:
     def to_dict(self) -> dict[str, Any]:
         sorted_findings = self.sorted_findings()
         return {
+            "schema_version": REPORT_JSON_SCHEMA_VERSION,
+            "tool": {"name": "djangoguard", "version": package_version()},
             "mode": self.mode,
             "generated_at": self.generated_at,
             "metadata": self.metadata,

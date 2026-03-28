@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import Report
+from .package_meta import INFORMATION_URI, package_version
 
 
 def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
@@ -20,6 +21,7 @@ def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
 def as_console(report: Report) -> str:
     lines: list[str] = [
         f"djangoguard report ({report.mode})",
+        f"tool: djangoguard {package_version()}",
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
@@ -67,25 +69,27 @@ def as_json(report: Report) -> str:
 
 def as_sarif(report: Report) -> str:
     rules: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
+    rule_index: dict[str, int] = {}
     results: list[dict[str, Any]] = []
 
     for finding in report.sorted_findings():
-        if finding.rule_id not in seen_ids:
-            seen_ids.add(finding.rule_id)
+        rid = finding.rule_id
+        if rid not in rule_index:
+            rule_index[rid] = len(rules)
             rules.append(
                 {
-                    "id": finding.rule_id,
+                    "id": rid,
                     "name": finding.title,
                     "shortDescription": {"text": finding.title},
                     "fullDescription": {"text": finding.message},
                     "help": {"text": finding.fix_hint or "Review and remediate."},
-                    "properties": {"severity": finding.severity},
+                    "properties": {"severity": str(finding.severity)},
                 }
             )
 
         result: dict[str, Any] = {
-            "ruleId": finding.rule_id,
+            "ruleId": rid,
+            "ruleIndex": rule_index[rid],
             "level": _sarif_level(finding.severity),
             "message": {"text": finding.message},
         }
@@ -117,7 +121,15 @@ def as_sarif(report: Report) -> str:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "djangoguard", "rules": rules}},
+                "tool": {
+                    "driver": {
+                        "name": "djangoguard",
+                        "version": package_version(),
+                        "informationUri": INFORMATION_URI,
+                        "rules": rules,
+                    }
+                },
+                "columnKind": "utf16CodeUnits",
                 "results": results,
             }
         ],
