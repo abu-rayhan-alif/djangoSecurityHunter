@@ -1,17 +1,41 @@
-# django_security_hunter
+<div align="center">
 
-[![PyPI version](https://img.shields.io/pypi/v/django-security-hunter.svg)](https://pypi.org/project/django-security-hunter/)
-[![Python versions](https://img.shields.io/pypi/pyversions/django-security-hunter.svg)](https://pypi.org/project/django-security-hunter/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/abu-rayhan-alif/djangoGuard/blob/main/LICENSE)
-[![CI](https://github.com/abu-rayhan-alif/djangoGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/abu-rayhan-alif/djangoGuard/actions/workflows/ci.yml)
+<pre>
+    _    _     ___ _____ 
+   / \  | |   |_ _|  ___|
+  / _ \ | |    | || |_   
+ / ___ \| |___ | ||  _|  
+/_/   \_\_____|___|_|    
+</pre>
 
-**Django + DRF security, reliability, and performance inspector** — static and config checks, optional runtime query profiling, SARIF for GitHub Code Scanning.
+**django-security-hunter**
+
+### Security, reliability & performance for Django APIs
+
+Static and config checks · optional query profiling · **SARIF** for GitHub Code Scanning
+
+[![PyPI](https://img.shields.io/pypi/v/django-security-hunter.svg?style=flat-square&label=PyPI)](https://pypi.org/project/django-security-hunter/)
+[![Python](https://img.shields.io/pypi/pyversions/django-security-hunter.svg?style=flat-square&label=Python)](https://pypi.org/project/django-security-hunter/)
+[![License](https://img.shields.io/badge/License-MIT-0d1117?style=flat-square&labelColor=30363d)](https://github.com/abu-rayhan-alif/djangoGuard/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/abu-rayhan-alif/djangoGuard/ci.yml?style=flat-square&label=CI&logo=github)](https://github.com/abu-rayhan-alif/djangoGuard/actions/workflows/ci.yml)
+
+**Install:** `pip install django-security-hunter` · **CLI:** `django_security_hunter` or `djangoguard`
+
+[Quick start](#quick-start) · [CI examples](#use-in-github--gitlab-ci) · [Rule catalog](docs/rules.md) · [Issues](https://github.com/abu-rayhan-alif/djangoGuard/issues)
+
+Maintained by [Abu Rayhan Alif](https://github.com/abu-rayhan-alif)
+
+</div>
+
+> [!TIP]
+> **New here?** Install with `pip install django-security-hunter`, then follow [Quick start](#quick-start) (local scan) and [Use in GitHub / GitLab CI](#use-in-github--gitlab-ci) (automation).
 
 ---
 
-## Contents
+<details>
+<summary><strong>Contents</strong></summary>
 
-- [Why use it](#why-django_security_hunter)
+- [Why django_security_hunter](#why-django_security_hunter)
 - [Features](#features)
 - [Documentation](#documentation)
 - [Requirements](#requirements)
@@ -23,13 +47,15 @@
 - [CLI options](#cli-options)
 - [Output formats](#output-formats)
 - [Exit codes](#exit-codes)
-- [GitHub Actions](#github-actions-integration)
+- [Use in GitHub / GitLab CI](#use-in-github--gitlab-ci)
 - [Docker](#docker)
 - [Security notes](#security-notes)
 - [Limitations](#limitations)
 - [Roadmap](#roadmap--future-work)
 - [Contributing](#contributing)
 - [License](#license)
+
+</details>
 
 ---
 
@@ -39,19 +65,21 @@ AI-assisted coding speeds up delivery but can hide risky backend patterns. This 
 
 ## Features
 
-| Area | What you get |
-|------|----------------|
-| **Scan** | Django settings (DJG001–DJG012), DRF defaults & URLs (DJG020–DJG027), static AST rules (DJG024, DJG050–052, DJG070–074, DJG080–081) |
-| **Profile** | Pytest-driven query counts, duplicate SQL hints, DB time (DJG040–DJG042); static N+1-style hints (DJG045) |
-| **Reports** | `console` (Rich when TTY), stable **JSON** (`schema_version`), **SARIF 2.1.0** for Code Scanning |
-| **Integrations** | Optional **pip-audit** (DJG060), **Bandit** (DJG061), **Semgrep** (DJG062) via config or env |
-| **CI** | Exit code `2` when findings meet `--threshold` |
+| | Area | What you get |
+|---|------|----------------|
+| 🔍 | **Scan** | Django settings (DJG001–DJG012), DRF defaults & URLs (DJG020–DJG027), static AST rules (DJG024, DJG050–052, DJG070–074, DJG080–081) |
+| ⚡ | **Profile** | Pytest-driven query counts, duplicate SQL hints, DB time (DJG040–DJG042); static N+1-style hints (DJG045) |
+| 📄 | **Reports** | `console` (Rich when TTY), stable **JSON** (`schema_version`), **SARIF 2.1.0** for Code Scanning |
+| 🔌 | **Integrations** | Optional **pip-audit** (DJG060), **Bandit** (DJG061), **Semgrep** (DJG062) via config or env |
+| ✓ | **CI** | Exit code `2` when findings meet `--threshold` |
 
 ## Documentation
 
-- [Rule catalog](docs/rules.md)
-- [Architecture](docs/architecture.md)
-- [GitHub Code Scanning & SARIF](docs/github_code_scanning.md)
+| Doc | Link |
+|-----|------|
+| Rule catalog | [docs/rules.md](docs/rules.md) |
+| Architecture | [docs/architecture.md](docs/architecture.md) |
+| GitHub Code Scanning & SARIF | [docs/github_code_scanning.md](docs/github_code_scanning.md) |
 
 ## Requirements
 
@@ -85,25 +113,36 @@ pip install -e ".[dev]"
 
 ## Quick start
 
-1. Open a terminal in your **Django project root** (directory with `manage.py`).
-2. Run:
+**You need:** a terminal, Python 3.11+, and a Django project folder that contains `manage.py`.
 
-```bash
-django_security_hunter scan --project . --format console
-```
+1. **Install the tool**
 
-**Django settings rules** (DJG001–DJG012, DJG020–DJG026, …) need a settings module:
+   ```bash
+   pip install django-security-hunter
+   ```
 
-```bash
-django_security_hunter scan --project . --settings yourproject.settings --format console
-```
+2. **Go to your project root** (same folder as `manage.py`).
 
-**JSON / SARIF**
+3. **Run a scan** — replace `mysite.settings` with your real settings module (the same string you use for `DJANGO_SETTINGS_MODULE`):
 
-```bash
-django_security_hunter scan --project . --format json --output reports/django_security_hunter.json
-django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
-```
+   ```bash
+   django_security_hunter scan --project . --settings mysite.settings --format console
+   ```
+
+   Without `--settings`, many checks still run on your Python files, but **Django settings checks** (e.g. `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`) are skipped.
+
+4. **Save a report to a file** (optional):
+
+   ```bash
+   django_security_hunter scan --project . --settings mysite.settings --format json --output reports/scan.json
+   django_security_hunter scan --project . --settings mysite.settings --format sarif --output reports/scan.sarif
+   ```
+
+5. **Fail CI when something serious is found** — add `--threshold HIGH` (or `WARN` / `CRITICAL`). If any finding is at or above that level, the command exits with code `2`.
+
+   ```bash
+   django_security_hunter scan --project . --settings mysite.settings --threshold HIGH --format console
+   ```
 
 ## Commands
 
@@ -116,7 +155,7 @@ Static and configuration analysis; writes a report in the chosen format.
 Static heuristics (e.g. DJG045) plus, by default, a nested **`pytest`** run with **`django_security_hunter.profile_pytest`**, recording per-test **query count**, **SQL time**, and **repeated SQL signatures** (DJG040–DJG042 / DJG041). Thresholds: `query_count_threshold`, `db_time_ms_threshold` in config.
 
 ```bash
-django_security_hunter profile --project . --settings yourproject.settings --format console
+django_security_hunter profile --project . --settings mysite.settings --format console
 ```
 
 ### `django_security_hunter init`
@@ -194,11 +233,35 @@ Full list: **[docs/rules.md](docs/rules.md)**.
 | `0` | No findings at or above `--threshold` |
 | `2` | One or more findings at or above threshold |
 
-## GitHub Actions integration
+## Use in GitHub / GitLab CI
 
-Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — install, test, SARIF scan, upload to Code Scanning.
+> [!NOTE]
+> `pip install` only installs the command-line tool. It does **not** create `.github/workflows` or `.gitlab-ci.yml` for you. You copy a small YAML file once, then every push can run the scan automatically.
 
-More detail: [docs/github_code_scanning.md](docs/github_code_scanning.md).
+### This repository (developers of django-security-hunter)
+
+Our own CI is in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). For SARIF and the Security tab, see [docs/github_code_scanning.md](docs/github_code_scanning.md).
+
+### Your Django project on GitHub Actions
+
+Do this **in your app’s GitHub repo** (not in this tool’s repo):
+
+1. Create the folder `.github/workflows/` if it does not exist.
+2. Copy [`examples/ci/github-actions-django-app.yml`](examples/ci/github-actions-django-app.yml) into that folder, e.g. as `django-security-hunter.yml`.
+3. Open the file and change **`yourproject.settings`** to your real settings module (e.g. `config.settings`).
+4. If the job needs your dependencies, uncomment the `pip install -r requirements.txt` line (or add your install steps).
+5. Commit and push. Check the **Actions** tab — the workflow should run on push and pull requests.
+6. **Optional — block bad PRs:** In GitHub → **Settings → Branches → Branch protection**, add a rule and enable **Require status checks**, then select this workflow’s check.
+
+### Your Django project on GitLab
+
+1. Copy [`examples/ci/gitlab-ci.yml`](examples/ci/gitlab-ci.yml) to the **root** of your repo as `.gitlab-ci.yml`.
+2. Change **`yourproject.settings`** to your real settings module.
+3. Commit and push. Open **CI/CD → Pipelines** to see the job.
+
+### Where the example files live
+
+The YAML templates are in this repository under [`examples/ci/`](examples/ci/). They are **not** bundled inside the PyPI wheel; people usually copy them from GitHub or from a checkout of this repo.
 
 ## Docker
 
