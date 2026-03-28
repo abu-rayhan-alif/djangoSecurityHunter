@@ -1,16 +1,65 @@
 from __future__ import annotations
 
-from pathlib import Path
+import importlib.metadata
+import os
 import sys
+import time
+from pathlib import Path
 
 import typer
 
+from . import __author__, __author_url__, __distribution__, __version__
 from .config import load_config
 from .engine import run_profile, run_scan
 from .models import VALID_SEVERITY_THRESHOLDS
 from .output import as_console, as_json, as_sarif
 
-app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
+app = typer.Typer(
+    help="Django + DRF Security, Reliability and Performance Inspector",
+    epilog=f"Author: {__author__}  •  {__author_url__}",
+    no_args_is_help=True,
+)
+
+
+def _thanks_flag_path() -> Path:
+    return Path.home() / ".cache" / "djangoguard" / "first_run_thanks_v1"
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _maybe_show_first_run_thanks() -> None:
+    """Once per machine after install, when user runs any real subcommand (not --help)."""
+    if _env_truthy("DJANGOGUARD_NO_THANKS") or _env_truthy("CI"):
+        return
+    if "--help" in sys.argv or "-h" in sys.argv:
+        return
+    flag = _thanks_flag_path()
+    try:
+        if flag.exists():
+            return
+    except OSError:
+        return
+    typer.echo("")
+    typer.secho("Thanks for using djangoguard!", fg=typer.colors.GREEN)
+    typer.echo(f"— {__author__}")
+    typer.echo(__author_url__)
+    typer.echo("")
+    try:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("1", encoding="utf-8")
+    except OSError:
+        pass
+
+
+@app.callback()
+def _main_callback(ctx: typer.Context) -> None:
+    if ctx.resilient_parsing:
+        return
+    if ctx.invoked_subcommand is None:
+        return
+    _maybe_show_first_run_thanks()
 
 
 def _render_report(report, output_format: str) -> str:
@@ -122,6 +171,40 @@ def init(
     )
     target.write_text(sample, encoding="utf-8")
     typer.echo(f"Created {target}")
+
+
+@app.command()
+def hello(
+    animate: bool = typer.Option(
+        False,
+        "--animate",
+        "-a",
+        help="Pause briefly between each 25%% step (cosmetic only).",
+    ),
+) -> None:
+    """Show install OK + optional 4×25%% style steps.
+
+    pip controls its own download/install UI; wheels do not run custom code during
+    ``pip install``. Use this command after install instead.
+    """
+    try:
+        ver = importlib.metadata.version(__distribution__)
+    except importlib.metadata.PackageNotFoundError:
+        ver = __version__
+
+    stages: tuple[tuple[int, str], ...] = (
+        (25, "a----"),
+        (50, "l----"),
+        (75, "i---"),
+        (100, "f---"),
+    )
+    for pct, label in stages:
+        if animate:
+            time.sleep(0.2)
+        typer.echo(f"[{pct:3d}%] {label}")
+    typer.secho(f"djangoguard {ver} — ready.", fg=typer.colors.GREEN)
+    typer.echo(f"By {__author__}")
+    typer.echo(__author_url__)
 
 
 def main() -> int:

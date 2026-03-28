@@ -24,15 +24,27 @@ AI-assisted coding improves speed, but it can also introduce hidden backend risk
 
 ## Installation
 
-From source (recommended for now):
+### From PyPI
+
+The package is published under the name **`django-guard-inspector`** (PyPI blocks names too similar to existing projects).
 
 ```bash
-git clone <your-repo-url>
-cd djangoguard
+pip install django-guard-inspector
+```
+
+After install, the CLI command is still **`djangoguard`** (and `import djangoguard` in Python).
+
+Requires **Python 3.11+** and a Django project when you run `scan` with `--settings`.
+
+### From source (development)
+
+```bash
+git clone https://github.com/abu-rayhan-alif/djangoGuard.git
+cd djangoGuard
 python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
-pip install -e .[dev]
+pip install -e ".[dev]"
 ```
 
 ## Quick Start
@@ -41,6 +53,12 @@ pip install -e .[dev]
 djangoguard scan --project . --format console
 djangoguard scan --project . --format json --output reports/djangoguard.json
 djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+```
+
+With Django settings (recommended for full rule coverage):
+
+```bash
+djangoguard scan --project . --settings mysite.settings --format console
 ```
 
 ## Commands
@@ -57,6 +75,12 @@ Runs runtime-oriented profiling checks (currently scaffolded in v0.1).
 
 Creates a default `djangoguard.toml` file in the target project.
 
+### `djangoguard hello`
+
+Optional post-install check; prints version and author info.
+
+The first time you run any command (e.g. `scan`) after install, a short “Thanks for using djangoguard” message may appear once per machine (skipped in CI or if `DJANGOGUARD_NO_THANKS=1`).
+
 ## CLI Options
 
 - `--project` Project root path
@@ -68,8 +92,9 @@ Creates a default `djangoguard.toml` file in the target project.
 ## Configuration
 
 Configuration is loaded in this order:
+
 1. `djangoguard.toml` (project override)
-2. `pyproject.toml` -> `[tool.djangoguard]`
+2. `pyproject.toml` → `[tool.djangoguard]`
 
 Example:
 
@@ -79,18 +104,15 @@ query_count_threshold = 50
 db_time_ms_threshold = 200
 ```
 
-## Rule Catalog (V1 Target)
+## Rule catalog (summary)
 
-| Rule ID | Severity | Description |
-|---|---|---|
-| DJG001 | CRITICAL | `DEBUG=True` in production |
-| DJG002 | HIGH | Suspicious/hardcoded `SECRET_KEY` |
-| DJG020 | HIGH | DRF default permissions missing or `AllowAny` |
-| DJG040 | WARN/HIGH | Query count per test above threshold |
-| DJG041 | HIGH | Repeated query signature indicates N+1 |
-| DJG070 | HIGH | Risky XSS usage patterns detected |
+| Range | Focus |
+|--------|--------|
+| **DJG001–DJG012** | Django settings: DEBUG, `SECRET_KEY`, `ALLOWED_HOSTS`, HTTPS/HSTS, cookies, headers, CSRF/CORS |
+| **DJG026** | HTTP upload / request size limits (best-effort) |
+| **DJG020–DJG025** | DRF: defaults, auth-like URLs, serializers, pagination (heuristics where noted) |
 
-> Full rules and implementation progress can be maintained in `docs/rules.md`.
+Detailed IDs, severities, and remediation text: **[docs/rules.md](docs/rules.md)** (some “planned” rows there may lag behind the code; the scanner is the source of truth).
 
 ## Output Formats
 
@@ -116,6 +138,7 @@ SARIF v2.1.0 output for GitHub PR annotations and Security tab integration.
 Workflow file: `.github/workflows/ci.yml`
 
 On every push and pull request:
+
 - installs dependencies
 - runs tests
 - generates SARIF report
@@ -138,17 +161,15 @@ docker compose run --rm djangoguard djangoguard scan --project /app --format con
 
 ## Limitations
 
-- Some future rules are heuristic and may produce false positives
+- Some rules are heuristic and may produce false positives
 - Runtime profiling depends on project test coverage quality
 - Rule precision improves with project-specific tuning and allowlists
 
 ## Roadmap
 
-- Django settings hardening rules (`DJG001-DJG012`)
-- DRF auth/permission/throttle checks (`DJG020+`)
-- Static code pattern rules (XSS/SSRF/deserialization/secrets)
+- Static code pattern rules (XSS / SSRF / deserialization / secrets in code) — see `docs/rules.md` (DJG-5+)
 - Concurrency and atomicity heuristics (`DJG050+`)
-- Runtime N+1 and DB-time evidence improvements (`DJG040+`)
+- Runtime N+1 and DB-time evidence (`DJG040+`)
 - Optional dependency vulnerability integrations
 
 ## Contributing
@@ -156,6 +177,7 @@ docker compose run --rm djangoguard djangoguard scan --project /app --format con
 Contributions are welcome.
 
 Please follow these guidelines:
+
 1. Open an issue for major changes
 2. Add tests for every new rule
 3. Keep rule IDs stable and documented
