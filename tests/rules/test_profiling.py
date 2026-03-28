@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from djangoguard.config import GuardConfig
-from djangoguard.profile_analysis import (
+from django_security_hunter.config import GuardConfig
+from django_security_hunter.profile_analysis import (
     PerTestCapture,
     build_profile_findings,
     normalize_sql_signature,
 )
-from djangoguard.rules.profiling import run_profiling_rules
+from django_security_hunter.rules.profiling import run_profiling_rules
 
 
 def test_normalize_sql_signature_collapses_literals() -> None:

@@ -72,7 +72,7 @@ class Report:
         sorted_findings = self.sorted_findings()
         return {
             "schema_version": REPORT_JSON_SCHEMA_VERSION,
-            "tool": {"name": "djangoguard", "version": package_version()},
+            "tool": {"name": "django_security_hunter", "version": package_version()},
             "mode": self.mode,
             "generated_at": self.generated_at,
             "metadata": self.metadata,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from djangoguard.config import GuardConfig, _safe_int, load_config
+from django_security_hunter.config import GuardConfig, _safe_int, load_config
 
 
 def test_safe_int_valid() -> None:
@@ -16,14 +16,14 @@ def test_safe_int_invalid_uses_default() -> None:
 
 
 def test_load_config_invalid_severity_fallback_to_warn(tmp_path: Path) -> None:
-    cfg_path = tmp_path / "djangoguard.toml"
+    cfg_path = tmp_path / "django_security_hunter.toml"
     cfg_path.write_text('severity_threshold = "NOT_A_LEVEL"\n', encoding="utf-8")
     cfg = load_config(tmp_path)
     assert cfg.severity_threshold == "WARN"
 
 
 def test_safe_int_clamps_huge(tmp_path: Path) -> None:
-    (tmp_path / "djangoguard.toml").write_text(
+    (tmp_path / "django_security_hunter.toml").write_text(
         "query_count_threshold = 9999999999999999999999999999999\n",
         encoding="utf-8",
     )
@@ -39,7 +39,7 @@ def test_load_config_skips_oversized_pyproject(tmp_path: Path) -> None:
 
 
 def test_load_config_invalid_ints_fallback(tmp_path: Path) -> None:
-    cfg_path = tmp_path / "djangoguard.toml"
+    cfg_path = tmp_path / "django_security_hunter.toml"
     cfg_path.write_text(
         'query_count_threshold = "bad"\n'
         "db_time_ms_threshold = []\n",
@@ -49,3 +49,4 @@ def test_load_config_invalid_ints_fallback(tmp_path: Path) -> None:
     assert isinstance(cfg, GuardConfig)
     assert cfg.query_count_threshold == 50
     assert cfg.db_time_ms_threshold == 200
+

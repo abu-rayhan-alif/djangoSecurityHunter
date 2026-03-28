@@ -1,4 +1,4 @@
-from djangoguard.models import Finding, Report
+from django_security_hunter.models import Finding, Report
 
 
 def test_finding_coerces_bad_line_to_none() -> None:

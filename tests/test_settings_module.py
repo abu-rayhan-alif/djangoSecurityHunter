@@ -1,6 +1,9 @@
 import pytest
 
-from djangoguard.settings_module import InvalidSettingsModule, normalize_django_settings_module
+from django_security_hunter.settings_module import (
+    InvalidSettingsModule,
+    normalize_django_settings_module,
+)
 
 
 def test_normalize_accepts_dotted() -> None:

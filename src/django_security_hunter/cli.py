@@ -130,9 +130,9 @@ def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
     project_root = project.expanduser().resolve()
-    target = project_root / "djangoguard.toml"
+    target = project_root / "django_security_hunter.toml"
     if target.exists():
-        typer.echo("djangoguard.toml already exists.")
+        typer.echo("django_security_hunter.toml already exists.")
         raise typer.Exit(code=0)
 
     sample = (
@@ -143,7 +143,9 @@ def init(
     try:
         target.write_text(sample, encoding="utf-8")
     except OSError as exc:
-        raise typer.BadParameter(f"Could not create djangoguard.toml: {exc}") from exc
+        raise typer.BadParameter(
+            f"Could not create django_security_hunter.toml: {exc}"
+        ) from exc
     typer.echo(f"Created {target}")
 
 
@@ -154,3 +156,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -1,13 +1,16 @@
-"""Run pytest with the djangoguard profile plugin and return captures."""
+"""Run pytest with the django_security_hunter profile plugin and return captures."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-from djangoguard.profile_analysis import PerTestCapture
-from djangoguard.profile_pytest_plugin import DjangoguardProfilePlugin
-from djangoguard.settings_module import InvalidSettingsModule, normalize_django_settings_module
+from django_security_hunter.profile_analysis import PerTestCapture
+from django_security_hunter.profile_pytest_plugin import DjangoSecurityHunterProfilePlugin
+from django_security_hunter.settings_module import (
+    InvalidSettingsModule,
+    normalize_django_settings_module,
+)
 
 
 def run_pytest_profile_capture(
@@ -52,7 +55,7 @@ def run_pytest_profile_capture(
         ]
     )
 
-    plugin = DjangoguardProfilePlugin()
+    plugin = DjangoSecurityHunterProfilePlugin()
     prev_settings = os.environ.get("DJANGO_SETTINGS_MODULE")
     prev_cwd = os.getcwd()
     try:

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from djangoguard.profile_analysis import PerTestCapture
+from django_security_hunter.profile_analysis import PerTestCapture
 
 _MAX_SQL_CHARS = 8_000
 _MAX_QUERIES_PER_TEST = 10_000
 
 
 @dataclass
-class DjangoguardProfilePlugin:
+class DjangoSecurityHunterProfilePlugin:
     """Populates ``captures`` with one :class:`PerTestCapture` per completed test."""
 
     captures: list[PerTestCapture] = field(default_factory=list)
@@ -29,18 +29,18 @@ class DjangoguardProfilePlugin:
         try:
             from django.db import connections
 
-            item._djangoguard_q_starts = {  # noqa: SLF001
+            item._dsh_profile_q_starts = {  # noqa: SLF001
                 alias: len(connections[alias].queries) for alias in connections
             }
         except Exception:
-            item._djangoguard_q_starts = {}  # noqa: SLF001
+            item._dsh_profile_q_starts = {}  # noqa: SLF001
 
     def pytest_runtest_teardown(self, item, nextitem) -> None:  # noqa: ARG002
         chunk: list[dict[str, str]] = []
         try:
             from django.db import connections
 
-            starts = getattr(item, "_djangoguard_q_starts", {})
+            starts = getattr(item, "_dsh_profile_q_starts", {})
             for alias in connections:
                 conn = connections[alias]
                 start = int(starts.get(alias, 0))

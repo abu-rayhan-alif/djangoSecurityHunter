@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from djangoguard.models import Finding
+from django_security_hunter.models import Finding
 
 # N+1 heuristic: same normalized shape repeated at least this many times in one test.
 _N1_REPEAT_MIN = 4

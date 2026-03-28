@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from djangoguard.config import GuardConfig
-from djangoguard.models import Finding
-from djangoguard.profile_analysis import build_profile_findings, profile_summary_metadata
-from djangoguard.profile_runner import run_pytest_profile_capture
+from django_security_hunter.config import GuardConfig
+from django_security_hunter.models import Finding
+from django_security_hunter.profile_analysis import (
+    build_profile_findings,
+    profile_summary_metadata,
+)
+from django_security_hunter.profile_runner import run_pytest_profile_capture
 
 
 def run_profiling_rules(
