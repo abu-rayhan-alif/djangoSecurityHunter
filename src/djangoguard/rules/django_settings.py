@@ -458,6 +458,7 @@ def run_django_settings_scan(
     findings.extend(_djg010_csrf_trusted_origins(ctx))
     findings.extend(_djg011_cors_allow_all(ctx))
     findings.extend(_djg012_cors_permissive_allowlist(ctx))
+    ctx.pop("secret_key", None)
     return findings, ctx
 
 

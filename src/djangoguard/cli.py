@@ -26,9 +26,17 @@ def _render_report(report, output_format: str) -> str:
 
 def _emit(content: str, output: Path | None) -> None:
     if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(content, encoding="utf-8")
-        typer.echo(f"Report written: {output}")
+        try:
+            resolved = output.resolve()
+        except OSError as exc:
+            raise typer.BadParameter(f"invalid --output path: {exc}") from exc
+        if resolved.exists() and resolved.is_dir():
+            raise typer.BadParameter(
+                f"--output must be a file path, not a directory: {resolved}"
+            )
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        resolved.write_text(content, encoding="utf-8")
+        typer.echo(f"Report written: {resolved}")
         return
     typer.echo(content)
 
@@ -68,7 +76,7 @@ def scan(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option("console", "--format", help="console|json|sarif"),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
@@ -79,7 +87,7 @@ def scan(
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(project_root=project_root, settings_module=settings)
     _warn_if_django_settings_not_loaded(report)
-    rendered = _render_report(report, format)
+    rendered = _render_report(report, output_format)
     _emit(rendered, output)
     _exit_by_threshold(report, eff_threshold)
 
@@ -90,7 +98,7 @@ def profile(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option("console", "--format", help="console|json|sarif"),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
@@ -100,7 +108,7 @@ def profile(
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_profile(project_root=project_root, settings_module=settings)
-    rendered = _render_report(report, format)
+    rendered = _render_report(report, output_format)
     _emit(rendered, output)
     _exit_by_threshold(report, eff_threshold)
 
