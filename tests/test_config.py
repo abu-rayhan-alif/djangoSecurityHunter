@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -20,6 +20,25 @@ def test_load_config_invalid_severity_fallback_to_warn(tmp_path: Path) -> None:
     cfg_path.write_text('severity_threshold = "NOT_A_LEVEL"\n', encoding="utf-8")
     cfg = load_config(tmp_path)
     assert cfg.severity_threshold == "WARN"
+
+
+def test_djangoguard_toml_overrides_legacy(tmp_path: Path) -> None:
+    (tmp_path / "django_security_hunter.toml").write_text(
+        'severity_threshold = "INFO"\n', encoding="utf-8"
+    )
+    (tmp_path / "djangoguard.toml").write_text(
+        'severity_threshold = "HIGH"\n', encoding="utf-8"
+    )
+    cfg = load_config(tmp_path)
+    assert cfg.severity_threshold == "HIGH"
+
+
+def test_load_config_pip_audit_bool(tmp_path: Path) -> None:
+    (tmp_path / "djangoguard.toml").write_text(
+        "pip_audit = true\n", encoding="utf-8"
+    )
+    cfg = load_config(tmp_path)
+    assert cfg.pip_audit is True
 
 
 def test_load_config_invalid_ints_fallback(tmp_path: Path) -> None:

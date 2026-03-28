@@ -47,6 +47,9 @@ def _render_rich_report(console: Any, report: Report) -> None:
         )
     )
 
+    if report.mode == "profile":
+        _print_profile_summary_rich(console, report)
+
     findings = report.sorted_findings()
     if not findings:
         console.print(Text("No findings.", style="bold green"))
@@ -78,6 +81,58 @@ def _render_rich_report(console: Any, report: Report) -> None:
         )
 
 
+def _print_profile_summary_rich(console: Any, report: Report) -> None:
+    from rich.console import Group
+    from rich.panel import Panel
+    from rich.text import Text
+
+    prof = report.metadata.get("profile")
+    if not prof:
+        return
+    lines: list[Text | str] = [
+        Text("Runtime query profile", style="bold cyan"),
+        Text(
+            f"runner={prof.get('query_runtime', '?')} · "
+            f"tests_profiled={prof.get('tests_profiled', 0)} · "
+            f"thresholds: queries>{prof.get('threshold_query_count', '?')}, "
+            f"time>{prof.get('threshold_db_time_ms', '?')}ms",
+            style="dim",
+        ),
+    ]
+    tops = prof.get("top_by_query_count") or []
+    if tops:
+        lines.append(Text("Top by query count:", style="bold white"))
+        for row in tops[:5]:
+            lines.append(
+                Text(
+                    f"  · {row.get('nodeid', '?')}: {row.get('query_count', 0)} queries",
+                    style="white",
+                )
+            )
+    slow = prof.get("top_by_sql_time_ms") or []
+    if slow:
+        lines.append(Text("Top by SQL time:", style="bold white"))
+        for row in slow[:5]:
+            lines.append(
+                Text(
+                    f"  · {row.get('nodeid', '?')}: {row.get('sql_time_ms', 0):.1f} ms",
+                    style="white",
+                )
+            )
+    dup = prof.get("duplicate_sql_examples") or []
+    if dup:
+        lines.append(Text("Example repeated SQL (normalized):", style="bold white"))
+        for row in dup[:5]:
+            sig = str(row.get("signature", ""))[:120]
+            lines.append(
+                Text(
+                    f"  · {row.get('repeat_count', 0)}x @ {row.get('nodeid', '?')}: {sig}",
+                    style="yellow",
+                )
+            )
+    console.print(Panel(Group(*lines), border_style="blue", padding=(0, 1)))
+
+
 def print_console_report(report: Report, *, file: TextIO | None = None) -> None:
     """Print styled report with Rich (Windows-safe: writes via Rich, not pre-built ANSI + echo)."""
     from rich.console import Console
@@ -105,6 +160,24 @@ def _as_console_plain(report: Report) -> str:
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
+    if report.mode == "profile":
+        prof = report.metadata.get("profile")
+        if prof:
+            lines.append("")
+            lines.append("Runtime query profile:")
+            lines.append(f"  runner: {prof.get('query_runtime', '?')}")
+            lines.append(f"  tests_profiled: {prof.get('tests_profiled', 0)}")
+            for row in (prof.get("top_by_query_count") or [])[:5]:
+                lines.append(
+                    f"  top_queries: {row.get('nodeid')}: {row.get('query_count')} queries"
+                )
+            for row in (prof.get("duplicate_sql_examples") or [])[:5]:
+                sig = str(row.get("signature", ""))[:100]
+                lines.append(
+                    f"  duplicate_sql: {row.get('repeat_count')}x @ "
+                    f"{row.get('nodeid')}: {sig}"
+                )
+
     findings = report.sorted_findings()
     if not findings:
         lines.append("No findings.")

@@ -109,7 +109,9 @@ def scan(
     project_root = project.resolve()
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
-    report = run_scan(project_root=project_root, settings_module=settings)
+    report = run_scan(
+        project_root=project_root, settings_module=settings, cfg=cfg
+    )
     _warn_if_django_settings_not_loaded(report)
     _emit_formatted_report(
         report, format, output, force_color=force_color, no_color=no_color
@@ -142,7 +144,9 @@ def profile(
     project_root = project.resolve()
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
-    report = run_profile(project_root=project_root, settings_module=settings)
+    report = run_profile(
+        project_root=project_root, settings_module=settings, cfg=cfg
+    )
     _emit_formatted_report(
         report, format, output, force_color=force_color, no_color=no_color
     )
@@ -154,18 +158,32 @@ def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
     project_root = project.resolve()
-    target = project_root / "django_security_hunter.toml"
-    if target.exists():
-        typer.echo("django_security_hunter.toml already exists.")
+    primary = project_root / "djangoguard.toml"
+    legacy = project_root / "django_security_hunter.toml"
+    if primary.exists():
+        typer.echo("djangoguard.toml already exists.")
+        raise typer.Exit(code=0)
+    if legacy.exists():
+        typer.echo(
+            "django_security_hunter.toml exists; remove or rename it to create djangoguard.toml."
+        )
         raise typer.Exit(code=0)
 
     sample = (
+        '# djangoguard / django-security-hunter\n'
         'severity_threshold = "WARN"\n'
         "query_count_threshold = 50\n"
         "db_time_ms_threshold = 200\n"
+        "# Optional:\n"
+        '# static_secrets_allowlist = ["PUBLIC_CLIENT_ID"]\n'
+        '# model_integrity_ignore_models = ["UserAuditLog"]\n'
+        "# djg051_high_save_threshold = 3\n"
+        "# pip_audit = true   # run pip-audit during scan (or set env; see README)\n"
+        "# bandit = true\n"
+        "# semgrep = true\n"
     )
-    target.write_text(sample, encoding="utf-8")
-    typer.echo(f"Created {target}")
+    primary.write_text(sample, encoding="utf-8")
+    typer.echo(f"Created {primary}")
 
 
 def main() -> int:

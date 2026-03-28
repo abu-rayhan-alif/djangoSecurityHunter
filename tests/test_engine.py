@@ -1,11 +1,11 @@
-﻿import json
+import json
 from pathlib import Path
 
 from django_security_hunter.engine import run_profile, run_scan
 
 
-def test_scan_returns_empty_report_by_default() -> None:
-    report = run_scan(Path(".").resolve())
+def test_scan_returns_empty_report_by_default(tmp_path: Path) -> None:
+    report = run_scan(tmp_path.resolve())
     assert report.mode == "scan"
     assert report.findings == []
     assert report.metadata.get("django_settings_loaded") is False
@@ -15,8 +15,10 @@ def test_scan_returns_empty_report_by_default() -> None:
     assert "django_settings_load_error" not in dumped
 
 
-def test_profile_returns_empty_report_by_default() -> None:
-    report = run_profile(Path(".").resolve())
+def test_profile_returns_empty_report_by_default(tmp_path: Path) -> None:
+    report = run_profile(tmp_path.resolve())
     assert report.mode == "profile"
     assert report.findings == []
+    assert "profile" in report.metadata
+    assert report.metadata["profile"].get("query_runtime") == "skipped"
 

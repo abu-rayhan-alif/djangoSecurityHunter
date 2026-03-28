@@ -34,6 +34,57 @@ def _hsts_seconds(settings: Any) -> int:
         return 0
 
 
+def _drf_installed(settings: Any) -> bool:
+    for app in getattr(settings, "INSTALLED_APPS", ()):
+        a = str(app).lower()
+        if a == "rest_framework" or a.endswith(".rest_framework"):
+            return True
+    return False
+
+
+def _cls_repr(obj: Any) -> str:
+    if isinstance(obj, str):
+        return obj
+    mod = getattr(obj, "__module__", None)
+    name = getattr(obj, "__name__", None)
+    if mod and name:
+        return f"{mod}.{name}"
+    return str(obj)
+
+
+def _rest_framework_lists(settings: Any) -> dict[str, Any]:
+    rf = getattr(settings, "REST_FRAMEWORK", None)
+    if not isinstance(rf, dict):
+        return {
+            "rest_default_permission_classes": [],
+            "rest_default_authentication_classes": [],
+            "rest_default_throttle_classes": [],
+            "rest_default_throttle_rates": {},
+            "rest_default_pagination_class": None,
+            "rest_page_size": None,
+        }
+    perms = rf.get("DEFAULT_PERMISSION_CLASSES")
+    auths = rf.get("DEFAULT_AUTHENTICATION_CLASSES")
+    throttles = rf.get("DEFAULT_THROTTLE_CLASSES")
+    rates = rf.get("DEFAULT_THROTTLE_RATES")
+    pag = rf.get("DEFAULT_PAGINATION_CLASS")
+    page_size = rf.get("PAGE_SIZE")
+    return {
+        "rest_default_permission_classes": [
+            _cls_repr(x) for x in (perms if isinstance(perms, (list, tuple)) else ([perms] if perms is not None else []))
+        ],
+        "rest_default_authentication_classes": [
+            _cls_repr(x) for x in (auths if isinstance(auths, (list, tuple)) else ([auths] if auths is not None else []))
+        ],
+        "rest_default_throttle_classes": [
+            _cls_repr(x) for x in (throttles if isinstance(throttles, (list, tuple)) else ([throttles] if throttles is not None else []))
+        ],
+        "rest_default_throttle_rates": dict(rates) if isinstance(rates, dict) else {},
+        "rest_default_pagination_class": _cls_repr(pag) if pag is not None else None,
+        "rest_page_size": page_size,
+    }
+
+
 def _allowed_hosts_list(settings: Any) -> list[str]:
     raw = getattr(settings, "ALLOWED_HOSTS", None)
     if raw is None:
@@ -109,6 +160,11 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
                     "cors_allowed_origin_regexes": _str_list_setting(
                         settings, "CORS_ALLOWED_ORIGIN_REGEXES"
                     ),
+                    "drf_installed": _drf_installed(settings),
+                    "data_upload_max_memory_size": getattr(
+                        settings, "DATA_UPLOAD_MAX_MEMORY_SIZE", None
+                    ),
+                    **_rest_framework_lists(settings),
                 }
             )
             return base
