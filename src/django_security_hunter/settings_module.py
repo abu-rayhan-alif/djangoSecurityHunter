@@ -1,4 +1,6 @@
-"""Validate ``DJANGO_SETTINGS_MODULE`` / ``--settings`` dotted module strings."""
+"""Dotted Django settings module names: normalize and reject unsafe values."""
+
+from __future__ import annotations
 
 
 class InvalidSettingsModule(ValueError):
@@ -6,7 +8,11 @@ class InvalidSettingsModule(ValueError):
 
 
 def normalize_django_settings_module(settings: str | None) -> str | None:
-    """Return a normalized module name, or None if unset/blank."""
+    """Return a normalized module name, or None if unset/blank.
+
+    Rejects values that could abuse ``DJANGO_SETTINGS_MODULE`` (control chars,
+    path-like segments, non-ASCII) or confuse importers.
+    """
     if settings is None:
         return None
     if not isinstance(settings, str):

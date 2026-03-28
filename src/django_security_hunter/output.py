@@ -11,6 +11,7 @@ _SARIF_URI_MAX = 2048
 
 
 def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
+    """SARIF requires positive integers; tolerate bad runtime values on Finding."""
     if value is None:
         return default
     try:

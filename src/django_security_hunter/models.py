@@ -6,6 +6,22 @@ from typing import Any
 
 from .package_meta import REPORT_JSON_SCHEMA_VERSION, package_version
 
+
+def _coerce_optional_int(value: Any) -> int | None:
+    """Normalize line/column to a non-negative int or None (runtime safety)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 0 else None
+
+
 SEVERITY_ORDER = {
     "INFO": 10,
     "WARN": 20,
@@ -20,20 +36,6 @@ def _normalize_severity_key(severity: object) -> str:
     if severity is None:
         return ""
     return str(severity).strip().upper()
-
-
-def _coerce_optional_int(value: Any) -> int | None:
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, str):
-        value = value.strip()
-    try:
-        n = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-    return n if n >= 0 else None
 
 
 @dataclass(slots=True)

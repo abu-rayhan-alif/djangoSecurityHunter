@@ -94,5 +94,3 @@ def load_config(project_root: Path) -> GuardConfig:
             config_data.get("enable_semgrep", False), False
         ),
     )
-
-
