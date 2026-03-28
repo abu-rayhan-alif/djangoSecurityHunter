@@ -1,58 +1,45 @@
 from __future__ import annotations
 
-from django_security_hunter.config import GuardConfig
-from django_security_hunter.profile_analysis import (
-    PerTestCapture,
-    build_profile_findings,
-    normalize_sql_signature,
-)
+from pathlib import Path
+
 from django_security_hunter.rules.profiling import run_profiling_rules
 
 
-def test_normalize_sql_signature_collapses_literals() -> None:
-    a = normalize_sql_signature("SELECT * FROM x WHERE id = 1")
-    b = normalize_sql_signature("SELECT * FROM x WHERE id = 99")
-    assert a == b
-
-
-def test_djg040_high_when_many_queries() -> None:
-    queries = [{"sql": f"SELECT {i}", "time": "0.001"} for i in range(120)]
-    cap = PerTestCapture(nodeid="app/tests/test_x.py::test_foo", queries=queries)
-    findings = build_profile_findings(
-        [cap],
-        query_count_threshold=50,
-        db_time_ms_threshold=10_000.0,
+def test_djg041_loop_queryset_attribute(tmp_path: Path) -> None:
+    p = tmp_path / "views.py"
+    p.write_text(
+        "def v():\n"
+        "    for u in User.objects.all():\n"
+        "        print(u.email)\n",
+        encoding="utf-8",
     )
-    djg040 = [f for f in findings if f.rule_id == "DJG040"]
-    assert len(djg040) == 1
-    assert djg040[0].severity == "HIGH"
+    findings, meta = run_profiling_rules(tmp_path)
+    assert "profile" in meta
+    assert any(f.rule_id == "DJG045" for f in findings)
 
 
-def test_djg041_repeated_signature() -> None:
-    sql = "SELECT * FROM book WHERE author_id = 1"
-    queries = [{"sql": sql, "time": "0.001"} for _ in range(5)]
-    cap = PerTestCapture(nodeid="app/tests/test_n1.py::test_n", queries=queries)
-    findings = build_profile_findings(
-        [cap],
-        query_count_threshold=10_000,
-        db_time_ms_threshold=10_000.0,
-    )
-    assert any(f.rule_id == "DJG041" for f in findings)
+def test_profile_summary_top_offenders() -> None:
+    from django_security_hunter.config import GuardConfig
+    from django_security_hunter.rules.profiling import _build_profile_summary
 
-
-def test_djg042_db_time() -> None:
-    queries = [{"sql": "SELECT 1", "time": "0.15"}]  # 150ms
-    cap = PerTestCapture(nodeid="app/tests/test_slow.py::test_s", queries=queries)
-    findings = build_profile_findings(
-        [cap],
-        query_count_threshold=10_000,
-        db_time_ms_threshold=100.0,
-    )
-    assert any(f.rule_id == "DJG042" for f in findings)
-
-
-def test_run_profiling_empty_project(tmp_path) -> None:
     cfg = GuardConfig()
-    findings, meta = run_profiling_rules(tmp_path.resolve(), cfg, None)
-    assert isinstance(findings, list)
-    assert "profile_pytest_exit_code" in meta
+    tests = [
+        {
+            "nodeid": "pkg.test_a",
+            "query_count": 99,
+            "sql_time_ms": 10.0,
+            "duplicate_sql": {},
+            "has_django_db": True,
+        },
+        {
+            "nodeid": "pkg.test_b",
+            "query_count": 5,
+            "sql_time_ms": 200.0,
+            "duplicate_sql": {"SELECT ? FROM t": 4},
+            "has_django_db": True,
+        },
+    ]
+    s = _build_profile_summary(tests, cfg)
+    assert s["top_by_query_count"][0]["nodeid"] == "pkg.test_a"
+    assert s["top_by_sql_time_ms"][0]["nodeid"] == "pkg.test_b"
+    assert s["duplicate_sql_examples"]

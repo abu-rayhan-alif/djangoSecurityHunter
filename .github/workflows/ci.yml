@@ -47,10 +47,33 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      - name: Run django_security_hunter scan
+      - name: Run django_security_hunter scan (package tree)
         run: |
           mkdir -p reports
-          django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
+          # Repo root is not a Django app: DJG001–012 skip without --settings. High
+          # threshold keeps heuristic noise from failing CI; SARIF still uploads.
+          django_security_hunter scan --project . --format sarif \
+            --output reports/django_security_hunter.sarif \
+            --threshold CRITICAL
+
+      - name: Scan Django fixture (settings-based rules)
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests/fixtures/djg001_proj
+        run: |
+          mkdir -p reports
+          django_security_hunter scan \
+            --project tests/fixtures/djg001_proj \
+            --settings mysite.settings_ci \
+            --format json \
+            --output reports/django_security_hunter.fixture.json \
+            --threshold CRITICAL
+          python -c "
+          import json
+          from pathlib import Path
+          d = json.loads(Path('reports/django_security_hunter.fixture.json').read_text(encoding='utf-8'))
+          assert d.get('metadata', {}).get('django_settings_loaded') is True, d.get('metadata')
+          print('fixture scan: django_settings_loaded=True')
+          "
 
       - name: Upload SARIF
         if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false

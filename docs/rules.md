@@ -15,6 +15,19 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 - `in_progress`: Rule implementation has started
 - `implemented`: Rule is active in scanner output
 
+### What the package implements today
+
+| Area | Rule IDs | Notes |
+|------|-----------|--------|
+| Django settings | DJG001–DJG012 | Requires `--settings` / `DJANGO_SETTINGS_MODULE` so Django loads. |
+| DRF config | DJG020–DJG027 | `REST_FRAMEWORK` + upload limits; **DJG023** inspects `urls.py` for auth-like paths vs throttling; **DJG027** is a per-view `AllowAny` heuristic (not full object-level authz). |
+| Static AST scan | DJG024, DJG070–DJG074 | Scans project `*.py` (excludes `migrations/`, venvs, etc.). |
+| Model / schema hints | DJG080–DJG081 | `models.py` / `*/models/*.py` heuristics. |
+| Concurrency heuristics | DJG050–DJG052 | Includes `+=` on loop-bound ORM rows without `F()`. |
+| Query / performance | DJG040–DJG042, DJG045 | **DJG040–042**: `profile` + `pytest -p django_security_hunter.profile_pytest`. **DJG045**: static loop/queryset hint (N+1-style). |
+| Dependencies | DJG060 | `pip_audit` in config and/or env; `pip-audit` CLI. |
+| CLI / config | — | Command **`djangoguard`**; config **`djangoguard.toml`** / `[tool.djangoguard]` (legacy names supported). |
+
 ---
 
 ## Django Settings Security Rules (DJG-3)
@@ -40,13 +53,25 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 | Rule ID | Severity | Status | Description | Typical Fix |
 |---|---|---|---|---|
-| DJG020 | HIGH | planned | `DEFAULT_PERMISSION_CLASSES` missing or `AllowAny` | Set strict defaults (e.g., `IsAuthenticated`) |
-| DJG021 | HIGH | planned | `DEFAULT_AUTHENTICATION_CLASSES` missing | Define authentication backends explicitly |
-| DJG022 | WARN | planned | Throttling disabled globally | Configure DRF throttle classes/rates |
-| DJG023 | HIGH | planned | Auth endpoints not throttled | Add aggressive throttle on login/token/reset routes |
-| DJG024 | WARN/HIGH | planned | Serializer uses `fields="__all__"` on likely-sensitive models | Enumerate explicit safe fields |
-| DJG025 | WARN/HIGH | planned | Missing pagination on list endpoints | Configure global pagination or per-view pagination |
-| DJG026 | WARN | planned | Request size limit missing/too high | Set request/body size guardrails |
+| DJG020 | HIGH | implemented | `DEFAULT_PERMISSION_CLASSES` missing or `AllowAny` | Set strict defaults (e.g., `IsAuthenticated`); finding includes `REST_FRAMEWORK` snippet |
+| DJG021 | HIGH | implemented | `DEFAULT_AUTHENTICATION_CLASSES` missing / empty | Explicit auth classes in `REST_FRAMEWORK` (snippet in finding) |
+| DJG022 | WARN | implemented | Throttling disabled globally (no classes and no rates) | `DEFAULT_THROTTLE_*` snippet in finding |
+| DJG023 | HIGH/WARN | implemented | Auth-like URL paths vs throttling (static `urls.py` + view resolve) | Per-route + global heuristics; see below |
+| DJG024 | WARN/HIGH | implemented | `Meta.fields = "__all__"` on DRF serializers | **HIGH** if serializer class name matches sensitive tokens (User, Token, Payment, …); else **WARN** |
+| DJG025 | WARN | implemented | No global list pagination (`PAGE_SIZE` / `DEFAULT_PAGINATION_CLASS`) | Snippet in finding; does not analyze per-view `pagination_class` |
+| DJG026 | WARN | implemented | `DATA_UPLOAD_MAX_MEMORY_SIZE` very large (\> 50 MiB) | Does **not** flag “unset” (Django default applies) |
+| DJG027 | WARN | implemented | DRF-like view class lists `AllowAny` in `permission_classes` | Review endpoint; use stricter permissions or object-level checks as appropriate |
+
+### DJG-4 heuristics and limitations
+
+- **Requires Django settings**: DJG020–022, DJG025–026 read `REST_FRAMEWORK` and related settings after `django.setup()` (same as DJG001–012). If settings are not loaded, these rules do not run.
+- **DRF must be installed**: `rest_framework` in `INSTALLED_APPS`; otherwise DJG020–022 / DJG025–026 are skipped.
+- **DJG023**: Scans `**/urls.py` for path patterns whose string looks like auth (login, token, password, oauth, …). Resolves `views.py` in the same package or dotted view strings under the project root when possible; lambdas/unresolved views fall back to global throttle settings. May false-negative on dynamic URLconf or includes; may false-positive if throttling is enforced only in middleware or upstream.
+- **DJG024**: AST-only; matches classes whose bases look like `*Serializer`. Does not resolve `Meta.model` to a `models.py` symbol; sensitivity uses **serializer class name** regex as a proxy.
+- **DJG025**: **Global** `REST_FRAMEWORK` pagination only. Views that define their own pagination without globals are not verified.
+- **DJG026**: Best-effort; only warns when the numeric setting exceeds an internal threshold. Use reverse proxies and `DATA_UPLOAD_MAX_NUMBER_FIELDS` / streaming uploads for defense in depth.
+
+Finding `fix_hint` fields are meant to be copy-paste starting points; adjust class paths and rates to your project.
 
 ---
 
@@ -91,21 +116,15 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 ---
 
-## Dependency and External Scanner Integration Rules (DJG-11)
-
-Enable tools via `enable_pip_audit`, `enable_bandit`, or `enable_semgrep` in config, or CLI flags `--pip-audit`, `--bandit`, `--semgrep` (and `--no-*` to force off). Requires the corresponding CLI on `PATH` / `python -m` where applicable.
+## Dependency and External Scanner Integration Rules (DJG-11, Optional)
 
 | Rule ID | Severity | Status | Description | Typical Fix |
 |---|---|---|---|---|
-| DJG060 | HIGH/CRITICAL | implemented | `pip-audit` reports high/critical vulnerable dependency | Upgrade/pin to fixed versions; re-lock deps |
-| DJG061 | INFO–HIGH | implemented | Bandit finding (`python -m bandit`) | Address per Bandit test ID or narrow `# nosec` with rationale |
-| DJG062 | INFO–HIGH | implemented | Semgrep finding (`semgrep scan --config=p/python`) | Fix per rule message or document false-positive suppressions |
+| DJG060 | HIGH / CRITICAL | implemented | `pip-audit` when `pip_audit = true` in config and/or env (see README) | Upgrade or replace vulnerable package; **CRITICAL** when CVSS score ≥ 9.0 (best-effort) |
+| DJG061 | HIGH / WARN / INFO | implemented | [Bandit](https://github.com/PyCQA/bandit) JSON when `bandit = true` and/or `DJANGOGUARD_BANDIT` (requires `bandit` installed) | Follow Bandit rule guidance; tune excludes in Bandit config if needed |
+| DJG062 | varies | implemented | [Semgrep](https://semgrep.dev/) JSON when `semgrep = true` and/or `DJANGOGUARD_SEMGREP` (requires `semgrep` on `PATH`; optional `DJANGOGUARD_SEMGREP_CONFIGS`) | Fix or suppress per Semgrep; align packs with your stack |
 
 ---
-
-## Report output (DJG-9)
-
-JSON reports include `schema_version` (`django_security_hunter.report.v1`) and `tool.name` / `tool.version` for stable automation. SARIF output is **v2.1.0** with `tool.driver.rules`, `results[].ruleIndex`, and `columnKind` for GitHub Code Scanning. See the repository **README** for CLI and CI examples.
 
 ## Design Principles for Rule Authors
 

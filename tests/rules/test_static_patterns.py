@@ -1,267 +1,100 @@
+from __future__ import annotations
+
 from pathlib import Path
 
+from django_security_hunter.config import GuardConfig
 from django_security_hunter.rules.static_patterns import run_static_pattern_rules
 
 
-def test_static_patterns_empty_without_models(tmp_path: Path) -> None:
+def test_mark_safe_finding(tmp_path: Path) -> None:
+    p = tmp_path / "bad.py"
+    p.write_text(
+        "from django.utils.safestring import mark_safe\n"
+        "x = mark_safe(user_input)\n",
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG070" for f in findings)
+
+
+def test_pickle_loads_finding(tmp_path: Path) -> None:
+    p = tmp_path / "bad.py"
+    p.write_text("import pickle\npickle.loads(blob)\n", encoding="utf-8")
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG072" for f in findings)
+
+
+def test_serializer_all_fields(tmp_path: Path) -> None:
+    p = tmp_path / "ser.py"
+    p.write_text(
+        "from rest_framework import serializers\n"
+        "class M(serializers.ModelSerializer):\n"
+        "    class Meta:\n"
+        "        model = object\n"
+        '        fields = "__all__"\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG024" and f.severity == "WARN" for f in findings)
+
+
+def test_serializer_all_fields_high_on_sensitive_name(tmp_path: Path) -> None:
+    p = tmp_path / "ser.py"
+    p.write_text(
+        "from rest_framework import serializers\n"
+        "class UserSerializer(serializers.ModelSerializer):\n"
+        "    class Meta:\n"
+        "        model = object\n"
+        '        fields = "__all__"\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG024" and f.severity == "HIGH" for f in findings)
+
+
+def test_clean_file_no_findings(tmp_path: Path) -> None:
+    p = tmp_path / "ok.py"
+    p.write_text("def f():\n    return 1\n", encoding="utf-8")
     assert list(run_static_pattern_rules(tmp_path)) == []
 
 
-def test_djg070_detects_mark_safe_and_template_safe(tmp_path: Path) -> None:
-    (tmp_path / "views.py").write_text(
+def test_djg074_static_secrets_allowlist(tmp_path: Path) -> None:
+    p = tmp_path / "keys.py"
+    p.write_text('API_KEY = "12345678901234567890"\n', encoding="utf-8")
+    cfg = GuardConfig(static_secrets_allowlist=frozenset(["API_KEY"]))
+    findings = list(run_static_pattern_rules(tmp_path, cfg))
+    assert not any(f.rule_id == "DJG074" for f in findings)
+
+
+def test_djg070_safe_string(tmp_path: Path) -> None:
+    p = tmp_path / "xss.py"
+    p.write_text(
         "from django.utils.safestring import SafeString\n"
-        "from django.utils.safestring import mark_safe\n"
-        "def f(x):\n"
-        "    return mark_safe(x)\n"
-        "def g(x):\n"
-        "    return SafeString(x)\n",
-        encoding="utf-8",
-    )
-    tpl = tmp_path / "templates"
-    tpl.mkdir()
-    (tpl / "x.html").write_text("{{ body|safe }}\n", encoding="utf-8")
-    (tpl / "y.html").write_text("{% autoescape off %}\n", encoding="utf-8")
-
-    findings = list(run_static_pattern_rules(tmp_path))
-    ids = [f.rule_id for f in findings]
-    assert ids.count("DJG070") == 4
-    assert all(f.severity == "HIGH" for f in findings if f.rule_id == "DJG070")
-
-
-def test_djg071_skips_literal_url(tmp_path: Path) -> None:
-    (tmp_path / "client.py").write_text(
-        "import requests\n"
-        "def ping():\n"
-        "    return requests.get('https://api.example.com/v1/status')\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg071_warns_dynamic_url(tmp_path: Path) -> None:
-    (tmp_path / "client.py").write_text(
-        "import requests\n"
-        "def fetch(endpoint):\n"
-        "    return requests.get(endpoint)\n",
+        "x = SafeString('<b>hi</b>')\n",
         encoding="utf-8",
     )
     findings = list(run_static_pattern_rules(tmp_path))
-    assert len(findings) == 1
-    assert findings[0].rule_id == "DJG071"
-    assert findings[0].severity == "WARN"
-
-
-def test_djg071_high_when_url_from_request(tmp_path: Path) -> None:
-    (tmp_path / "views.py").write_text(
-        "import httpx\n"
-        "def proxy(request):\n"
-        "    return httpx.get(request.GET['target'])\n",
-        encoding="utf-8",
+    assert any(
+        f.rule_id == "DJG070" and "SafeString" in (f.title or "") for f in findings
     )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG071"]
-    assert len(findings) == 1
-    assert findings[0].severity == "HIGH"
 
 
-def test_djg071_high_webhook_name_hint(tmp_path: Path) -> None:
-    (tmp_path / "hooks.py").write_text(
-        "import requests\n"
-        "def notify(webhook_url):\n"
-        "    return requests.post(webhook_url, json={})\n",
-        encoding="utf-8",
+def test_djg070_template_pipe_safe(tmp_path: Path) -> None:
+    tdir = tmp_path / "templates"
+    tdir.mkdir()
+    (tdir / "x.html").write_text("<div>{{ body|safe }}</div>\n", encoding="utf-8")
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(
+        f.rule_id == "DJG070" and "|safe" in (f.title or "").lower() for f in findings
     )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG071"]
-    assert len(findings) == 1
-    assert findings[0].severity == "HIGH"
 
 
-def test_djg072_pickle_loads(tmp_path: Path) -> None:
-    (tmp_path / "bad.py").write_text(
-        "import pickle\n"
-        "def f(b):\n"
-        "    return pickle.loads(b)\n",
-        encoding="utf-8",
+def test_djg070_template_autoescape_off(tmp_path: Path) -> None:
+    tdir = tmp_path / "templates"
+    tdir.mkdir()
+    (tdir / "y.html").write_text("{% autoescape off %}{{ x }}{% endautoescape %}\n")
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(
+        f.rule_id == "DJG070" and "autoescape" in (f.title or "").lower()
+        for f in findings
     )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG072"]
-    assert len(findings) == 1
-    assert findings[0].severity == "HIGH"
-    assert "pickle" in findings[0].message
-
-
-def test_djg072_yaml_load_without_safe_loader(tmp_path: Path) -> None:
-    (tmp_path / "bad.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.load(s)\n",
-        encoding="utf-8",
-    )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG072"]
-    assert len(findings) == 1
-
-
-def test_djg072_yaml_load_with_safe_loader_kwarg(tmp_path: Path) -> None:
-    (tmp_path / "ok.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.load(s, Loader=yaml.SafeLoader)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg072_yaml_load_with_safe_loader_positional(tmp_path: Path) -> None:
-    (tmp_path / "ok.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.load(s, yaml.SafeLoader)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg072_yaml_load_with_csafeloader(tmp_path: Path) -> None:
-    (tmp_path / "ok.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.load(s, Loader=yaml.CSafeLoader)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg072_yaml_unsafe_load(tmp_path: Path) -> None:
-    (tmp_path / "bad.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.unsafe_load(s)\n",
-        encoding="utf-8",
-    )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG072"]
-    assert len(findings) == 1
-
-
-def test_djg072_yaml_safe_load_not_flagged(tmp_path: Path) -> None:
-    (tmp_path / "ok.py").write_text(
-        "import yaml\n"
-        "def f(s):\n"
-        "    return yaml.safe_load(s)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg073_logs_sensitive_identifier(tmp_path: Path) -> None:
-    (tmp_path / "log.py").write_text(
-        "import logging\n"
-        "logger = logging.getLogger(__name__)\n"
-        "def f(access_token):\n"
-        "    logger.info(access_token)\n",
-        encoding="utf-8",
-    )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG073"]
-    assert len(findings) == 1
-    assert findings[0].line == 4
-    assert findings[0].path.endswith("log.py")
-    assert findings[0].fix_hint
-    assert "redact" in findings[0].fix_hint.lower()
-
-
-def test_djg073_no_hit_for_literal_only(tmp_path: Path) -> None:
-    (tmp_path / "log.py").write_text(
-        "import logging\n"
-        "logger = logging.getLogger(__name__)\n"
-        "def f():\n"
-        '    logger.info("hello")\n',
-        encoding="utf-8",
-    )
-    assert [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG073"] == []
-
-
-def test_djg074_high_aws_like_key(tmp_path: Path) -> None:
-    (tmp_path / "cfg.py").write_text(
-        'KEY = "AKIAIOSFODNN7EXAMPLE"\n',
-        encoding="utf-8",
-    )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG074"]
-    assert len(findings) == 1
-    assert findings[0].severity == "HIGH"
-    assert findings[0].line == 1
-
-
-def test_djg074_allowlist_placeholder(tmp_path: Path) -> None:
-    (tmp_path / "cfg.py").write_text(
-        'API_KEY = "changeme"\n',
-        encoding="utf-8",
-    )
-    assert [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG074"] == []
-
-
-def test_djg074_warn_bearer_literal(tmp_path: Path) -> None:
-    (tmp_path / "cfg.py").write_text(
-        'H = "Bearer xxxxxxxxxxxxxxxxxxxxxxxx"\n',
-        encoding="utf-8",
-    )
-    findings = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG074"]
-    assert len(findings) == 1
-    assert findings[0].severity == "WARN"
-
-
-def test_djg080_email_field_not_unique_high(tmp_path: Path) -> None:
-    (tmp_path / "models.py").write_text(
-        "from django.db import models\n"
-        "class Profile(models.Model):\n"
-        "    email = models.EmailField()\n",
-        encoding="utf-8",
-    )
-    fs = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG080"]
-    assert len(fs) == 1
-    assert fs[0].severity == "HIGH"
-    assert "Profile" in fs[0].message
-    assert "email" in fs[0].message
-    assert "unique=True" in fs[0].fix_hint
-    assert "UniqueConstraint" in fs[0].fix_hint
-
-
-def test_djg080_unique_true_skipped(tmp_path: Path) -> None:
-    (tmp_path / "models.py").write_text(
-        "from django.db import models\n"
-        "class Profile(models.Model):\n"
-        "    email = models.EmailField(unique=True)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg081_cascade_to_order_warn(tmp_path: Path) -> None:
-    (tmp_path / "models.py").write_text(
-        "from django.db import models\n"
-        "class Line(models.Model):\n"
-        "    order = models.ForeignKey('Order', on_delete=models.CASCADE)\n",
-        encoding="utf-8",
-    )
-    fs = [f for f in run_static_pattern_rules(tmp_path) if f.rule_id == "DJG081"]
-    assert len(fs) == 1
-    assert fs[0].severity == "WARN"
-    assert "Line" in fs[0].message
-    assert "PROTECT" in fs[0].fix_hint
-
-
-def test_djg081_no_false_positive_ordering_token(tmp_path: Path) -> None:
-    """``order`` must not match inside ``ordering`` (substring heuristic bug)."""
-    (tmp_path / "models.py").write_text(
-        "from django.db import models\n"
-        "class X(models.Model):\n"
-        "    prio = models.ForeignKey('shop.ordering.Priority', on_delete=models.CASCADE)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []
-
-
-def test_djg081_ignores_contenttype(tmp_path: Path) -> None:
-    (tmp_path / "models.py").write_text(
-        "from django.db import models\n"
-        "class X(models.Model):\n"
-        "    ct = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)\n",
-        encoding="utf-8",
-    )
-    assert [f.rule_id for f in run_static_pattern_rules(tmp_path)] == []

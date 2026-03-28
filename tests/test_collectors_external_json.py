@@ -1,4 +1,4 @@
-﻿"""Unit tests for pip-audit, Bandit, and Semgrep JSON mapping (DJG060–DJG062)."""
+"""Unit tests for pip-audit, Bandit, and Semgrep JSON mapping (DJG060–DJG062)."""
 
 from __future__ import annotations
 
@@ -125,12 +125,11 @@ def test_run_scan_with_pip_audit_enabled_invokes_runner(
     (tmp_path / "pyproject.toml").write_text(
         "[project]\nname='x'\nversion='0'\n", encoding="utf-8"
     )
-    cfg = GuardConfig(enable_pip_audit=True)
+    cfg = GuardConfig(pip_audit=True)
     report = run_scan(tmp_path, settings_module=None, cfg=cfg)
     assert len(report.findings) == 1
     assert report.findings[0].rule_id == "DJG060"
     assert report.metadata.get("integrations", {}).get("pip_audit", {}).get(
         "status"
     ) == "ok"
-
 

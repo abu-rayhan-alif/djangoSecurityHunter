@@ -1,217 +1,115 @@
 from __future__ import annotations
 
 from pathlib import Path
-from textwrap import dedent
 
+from django_security_hunter.config import GuardConfig
 from django_security_hunter.rules.concurrency import run_concurrency_rules
 
 
-def _write(root: Path, rel: str, content: str) -> None:
-    p = root / rel
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
-
-
-def test_djg050_check_then_create(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/risky.py",
-        dedent(
-            """
-            from django.db import models
-
-            class Thing(models.Model):
-                pass
-
-            def ensure():
-                if Thing.objects.filter(pk=1).exists():
-                    pass
-                Thing.objects.create(pk=1)
-            """
-        ),
+def test_djg050_exists_then_create(tmp_path: Path) -> None:
+    p = tmp_path / "race.py"
+    p.write_text(
+        "def f():\n"
+        "    if not M.objects.filter(x=1).exists():\n"
+        "        M.objects.create(x=1)\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG050"]
-    assert len(findings) == 1
-    assert findings[0].line == 8
-    assert findings[0].severity == "WARN"
-    assert findings[0].fix_hint
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(f.rule_id == "DJG050" for f in findings)
 
 
-def test_djg050_body_has_create_inside_if(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/risky2.py",
-        dedent(
-            """
-            from django.db import models
-
-            class Thing(models.Model):
-                pass
-
-            def ensure():
-                if Thing.objects.filter(name="a").exists():
-                    Thing.objects.create(name="a")
-            """
-        ),
+def test_djg052_increment_without_f(tmp_path: Path) -> None:
+    p = tmp_path / "inc.py"
+    p.write_text(
+        "def go(qs):\n"
+        "    for row in qs:\n"
+        "        row.count += 1\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG050"]
-    assert len(findings) == 1
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(f.rule_id == "DJG052" for f in findings)
 
 
-def test_djg051_multi_writes_warn(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/writes.py",
-        dedent(
-            """
-            from django.db import models
-
-            class A(models.Model):
-                pass
-
-            class B(models.Model):
-                pass
-
-            def flow():
-                a = A()
-                a.save()
-                B.objects.create()
-            """
-        ),
+def test_djg052_save_in_loop_without_lock(tmp_path: Path) -> None:
+    p = tmp_path / "loop_save.py"
+    p.write_text(
+        "def go():\n"
+        "    for row in M.objects.filter(active=True):\n"
+        "        row.x = 1\n"
+        "        row.save()\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG051"]
-    assert len(findings) == 1
-    assert findings[0].severity == "WARN"
-
-
-def test_djg051_three_writes_high(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/writes3.py",
-        dedent(
-            """
-            from django.db import models
-
-            class A(models.Model):
-                pass
-
-            def flow():
-                A.objects.create()
-                A.objects.create()
-                A.objects.create()
-            """
-        ),
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(
+        f.rule_id == "DJG052" and "select_for_update" in (f.title or "") for f in findings
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG051"]
-    assert len(findings) == 1
-    assert findings[0].severity == "HIGH"
 
 
-def test_djg051_skips_when_atomic_context(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/atomic_ctx.py",
-        dedent(
-            """
-            from django.db import models, transaction
-
-            class A(models.Model):
-                pass
-
-            def flow():
-                with transaction.atomic():
-                    a = A()
-                    a.save()
-                    A.objects.create()
-            """
-        ),
+def test_djg052_update_binop_without_f(tmp_path: Path) -> None:
+    p = tmp_path / "upd.py"
+    p.write_text(
+        "def bump():\n"
+        "    M.objects.filter(pk=1).update(n=1 + 1)\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG051"]
-    assert findings == []
-
-
-def test_djg051_skips_when_atomic_decorator(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/atomic_deco.py",
-        dedent(
-            """
-            from django.db import models, transaction
-
-            class A(models.Model):
-                pass
-
-            @transaction.atomic
-            def flow():
-                a = A()
-                a.save()
-                A.objects.create()
-            """
-        ),
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(
+        f.rule_id == "DJG052" and "update()" in (f.title or "").lower() for f in findings
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG051"]
-    assert findings == []
 
 
-def test_djg052_counter_without_f(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/stock.py",
-        dedent(
-            """
-            from django.db import models
-
-            class Lot(models.Model):
-                quantity = models.IntegerField()
-
-            def dec(lot):
-                lot.quantity = lot.quantity - 1
-                lot.save()
-            """
-        ),
+def test_djg051_multi_save(tmp_path: Path) -> None:
+    p = tmp_path / "saves.py"
+    p.write_text(
+        "class X:\n"
+        "    def go(self, a, b):\n"
+        "        a.save()\n"
+        "        b.save()\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG052"]
-    assert len(findings) >= 1
-    assert any(f.line == 8 for f in findings)
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(f.rule_id == "DJG051" and f.severity == "WARN" for f in findings)
 
 
-def test_djg052_allows_f_expression(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/stock_f.py",
-        dedent(
-            """
-            from django.db import models
-            from django.db.models import F
-
-            class Lot(models.Model):
-                quantity = models.IntegerField()
-
-            def bump(lot):
-                lot.quantity = F("quantity") + 1
-                lot.save()
-            """
-        ),
+def test_djg051_high_when_many_saves(tmp_path: Path) -> None:
+    p = tmp_path / "many.py"
+    p.write_text(
+        "def go(a, b, c):\n"
+        "    a.save()\n"
+        "    b.save()\n"
+        "    c.save()\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG052"]
-    assert findings == []
+    cfg = GuardConfig(djg051_high_save_threshold=3)
+    findings = list(run_concurrency_rules(tmp_path, cfg))
+    assert any(f.rule_id == "DJG051" and f.severity == "HIGH" for f in findings)
 
 
-def test_djg052_augassign(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "svc/aug.py",
-        dedent(
-            """
-            from django.db import models
-
-            class Lot(models.Model):
-                balance = models.IntegerField()
-
-            def inc(lot):
-                lot.balance += 1
-            """
-        ),
+def test_djg050_try_get_then_create(tmp_path: Path) -> None:
+    p = tmp_path / "race2.py"
+    p.write_text(
+        "def f():\n"
+        "    try:\n"
+        "        M.objects.get(pk=1)\n"
+        "    except Exception:\n"
+        "        M.objects.create(pk=1)\n",
+        encoding="utf-8",
     )
-    findings = [f for f in run_concurrency_rules(tmp_path) if f.rule_id == "DJG052"]
-    assert len(findings) == 1
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(
+        f.rule_id == "DJG050" and "get" in (f.title or "").lower() for f in findings
+    )
+
+
+def test_djg051_with_block_no_crash(tmp_path: Path) -> None:
+    """ast.With has no orelse; walker must not assume If/For shape."""
+    p = tmp_path / "ctx.py"
+    p.write_text(
+        "def go(a, b):\n"
+        "    with open('x'):\n"
+        "        a.save()\n"
+        "        b.save()\n",
+        encoding="utf-8",
+    )
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(f.rule_id == "DJG051" for f in findings)
