@@ -1,13 +1,13 @@
-# djangoguard
+﻿# djsecinspect
 
 Django + DRF Security, Reliability, and Performance Inspector.
 
-`djangoguard` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
+`djsecinspect` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
 
-## Why djangoguard
+## Why djsecinspect
 
 AI-assisted coding improves speed, but it can also introduce hidden backend risks.  
-`djangoguard` gives fast, actionable feedback during development and in CI before code reaches production.
+`djsecinspect` gives fast, actionable feedback during development and in CI before code reaches production.
 
 ## Features
 
@@ -28,7 +28,7 @@ From source (recommended for now):
 
 ```bash
 git clone <your-repo-url>
-cd djangoguard
+cd djsecinspect
 python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
@@ -38,24 +38,24 @@ pip install -e .[dev]
 ## Quick Start
 
 ```bash
-djangoguard scan --project . --format console
-djangoguard scan --project . --format json --output reports/djangoguard.json
-djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+djsecinspect scan --project . --format console
+djsecinspect scan --project . --format json --output reports/djsecinspect.json
+djsecinspect scan --project . --format sarif --output reports/djsecinspect.sarif
 ```
 
 ## Commands
 
-### `djangoguard scan`
+### `djsecinspect scan`
 
 Runs static/config analysis and emits a report.
 
-### `djangoguard profile`
+### `djsecinspect profile`
 
 Runs runtime-oriented profiling checks (currently scaffolded in v0.1).
 
-### `djangoguard init`
+### `djsecinspect init`
 
-Creates a default `djangoguard.toml` file in the target project.
+Creates a default `djsecinspect.toml` file in the target project.
 
 ## CLI Options
 
@@ -68,8 +68,8 @@ Creates a default `djangoguard.toml` file in the target project.
 ## Configuration
 
 Configuration is loaded in this order:
-1. `djangoguard.toml` (project override)
-2. `pyproject.toml` -> `[tool.djangoguard]`
+1. `djsecinspect.toml` (project override)
+2. `pyproject.toml` -> `[tool.djsecinspect]`
 
 Example:
 
@@ -126,14 +126,14 @@ On every push and pull request:
 Build and run:
 
 ```bash
-docker build -t djangoguard:local .
-docker run --rm djangoguard:local djangoguard scan --project /app --format console
+docker build -t djsecinspect:local .
+docker run --rm djsecinspect:local djsecinspect scan --project /app --format console
 ```
 
 Using Docker Compose:
 
 ```bash
-docker compose run --rm djangoguard djangoguard scan --project /app --format console
+docker compose run --rm djsecinspect djsecinspect scan --project /app --format console
 ```
 
 ## Limitations
@@ -164,3 +164,4 @@ Please follow these guidelines:
 ## License
 
 MIT
+

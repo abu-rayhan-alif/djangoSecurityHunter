@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
-from djangoguard.collectors.settings_loader import load_settings_context
-from djangoguard.models import Finding
+from djsecinspect.collectors.settings_loader import load_settings_context
+from djsecinspect.models import Finding
 
 _MIN_SECRET_KEY_LEN = 40
 
@@ -466,3 +466,4 @@ def run_django_settings_rules(
 ) -> Iterable[Finding]:
     findings, _ = run_django_settings_scan(project_root, settings_module)
     return findings
+

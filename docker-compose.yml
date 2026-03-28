@@ -1,10 +1,11 @@
-services:
-  djangoguard:
+﻿services:
+  djsecinspect:
     build:
       context: .
       dockerfile: Dockerfile
-    image: djangoguard:local
+    image: djsecinspect:local
     working_dir: /app
     volumes:
       - ./:/app
-    command: djangoguard scan --project /app --format console
+    command: djsecinspect scan --project /app --format console
+

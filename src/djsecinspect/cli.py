@@ -1,11 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import sys
 
 import typer
 
-from .config import load_config
+from .config import GuardConfig, load_config
 from .engine import run_profile, run_scan
 from .models import VALID_SEVERITY_THRESHOLDS
 from .output import as_console, as_json, as_sarif
@@ -53,6 +54,22 @@ def _warn_if_django_settings_not_loaded(report) -> None:
     typer.secho(" ".join(parts), fg=typer.colors.YELLOW, err=True)
 
 
+def _merge_integration_overrides(
+    cfg: GuardConfig,
+    pip_audit: bool | None,
+    bandit: bool | None,
+    semgrep: bool | None,
+) -> GuardConfig:
+    if pip_audit is None and bandit is None and semgrep is None:
+        return cfg
+    return replace(
+        cfg,
+        enable_pip_audit=pip_audit if pip_audit is not None else cfg.enable_pip_audit,
+        enable_bandit=bandit if bandit is not None else cfg.enable_bandit,
+        enable_semgrep=semgrep if semgrep is not None else cfg.enable_semgrep,
+    )
+
+
 def _effective_threshold(cli_value: str | None, config_default: str) -> str:
     raw = (cli_value if cli_value is not None else config_default).strip().upper()
     if raw not in VALID_SEVERITY_THRESHOLDS:
@@ -73,11 +90,29 @@ def scan(
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
+    pip_audit: bool | None = typer.Option(
+        None,
+        "--pip-audit/--no-pip-audit",
+        help="Run pip-audit (default: enable_pip_audit in config)",
+    ),
+    bandit: bool | None = typer.Option(
+        None,
+        "--bandit/--no-bandit",
+        help="Run Bandit (default: enable_bandit in config)",
+    ),
+    semgrep: bool | None = typer.Option(
+        None,
+        "--semgrep/--no-semgrep",
+        help="Run Semgrep (default: enable_semgrep in config)",
+    ),
 ) -> None:
     project_root = project.resolve()
     cfg = load_config(project_root)
+    eff_cfg = _merge_integration_overrides(cfg, pip_audit, bandit, semgrep)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
-    report = run_scan(project_root=project_root, settings_module=settings)
+    report = run_scan(
+        project_root=project_root, settings_module=settings, cfg=eff_cfg
+    )
     _warn_if_django_settings_not_loaded(report)
     rendered = _render_report(report, format)
     _emit(rendered, output)
@@ -110,15 +145,19 @@ def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
     project_root = project.resolve()
-    target = project_root / "djangoguard.toml"
+    target = project_root / "djsecinspect.toml"
     if target.exists():
-        typer.echo("djangoguard.toml already exists.")
+        typer.echo("djsecinspect.toml already exists.")
         raise typer.Exit(code=0)
 
     sample = (
         'severity_threshold = "WARN"\n'
         "query_count_threshold = 50\n"
         "db_time_ms_threshold = 200\n"
+        "# Optional external scanners (also overridable via CLI flags):\n"
+        "enable_pip_audit = false\n"
+        "enable_bandit = false\n"
+        "enable_semgrep = false\n"
     )
     target.write_text(sample, encoding="utf-8")
     typer.echo(f"Created {target}")
@@ -131,3 +170,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

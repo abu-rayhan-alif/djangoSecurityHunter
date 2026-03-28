@@ -1,14 +1,50 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from .models import Report
+
+_SARIF_URI_MAX = 2048
+
+
+def _sarif_artifact_uri(path: str | None) -> str | None:
+    """Normalize paths for SARIF: no path traversal, no remote URL schemes in uri."""
+    if path is None:
+        return None
+    raw = path.strip().replace("\\", "/")
+    if not raw:
+        return None
+    if len(raw) > _SARIF_URI_MAX:
+        raw = raw[:_SARIF_URI_MAX]
+    low = raw.lower()
+    if "://" in low:
+        if low.startswith("file:"):
+            try:
+                u = urlsplit(raw)
+                raw = unquote(u.path or "")
+            except Exception:
+                raw = ""
+        else:
+            tail = raw.rstrip("/").rsplit("/", 1)[-1]
+            tail = tail.split("?", 1)[0].split("#", 1)[0]
+            raw = tail or "artifact"
+    parts = [p for p in raw.split("/") if p and p != "."]
+    safe: list[str] = []
+    for p in parts:
+        if p == "..":
+            if safe:
+                safe.pop()
+        else:
+            safe.append(p)
+    out = "/".join(safe)
+    return out or None
 
 
 def as_console(report: Report) -> str:
     lines: list[str] = [
-        f"djangoguard report ({report.mode})",
+        f"djsecinspect report ({report.mode})",
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
@@ -60,10 +96,11 @@ def as_sarif(report: Report) -> str:
             "level": _sarif_level(finding.severity),
             "message": {"text": finding.message},
         }
-        if finding.path:
+        uri = _sarif_artifact_uri(finding.path)
+        if uri:
             location = {
                 "physicalLocation": {
-                    "artifactLocation": {"uri": finding.path},
+                    "artifactLocation": {"uri": uri},
                 }
             }
             if finding.line is not None:
@@ -79,7 +116,7 @@ def as_sarif(report: Report) -> str:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "djangoguard", "rules": rules}},
+                "tool": {"driver": {"name": "djsecinspect", "rules": rules}},
                 "results": results,
             }
         ],
@@ -94,3 +131,4 @@ def _sarif_level(severity: str) -> str:
     if normalized == "WARN":
         return "warning"
     return "note"
+

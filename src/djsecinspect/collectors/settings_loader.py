@@ -1,9 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
 from typing import Any
+
+from djsecinspect.validation import is_valid_django_settings_module
 
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:
@@ -54,6 +56,10 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
     }
     if not module:
         base["skip_reason"] = "no_settings_module"
+        return base
+
+    if not is_valid_django_settings_module(module):
+        base["skip_reason"] = "invalid_settings_module"
         return base
 
     root_str = str(root)
@@ -121,3 +127,4 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
                 sys.path.remove(root_str)
             except ValueError:
                 pass
+
