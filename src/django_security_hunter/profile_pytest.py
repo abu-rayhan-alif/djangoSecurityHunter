@@ -1,4 +1,6 @@
-"""Pytest hooks for `profile` mode (DJG040–DJG042). Loaded via `pytest -p django_security_hunter.profile_pytest`."""
+"""Pytest hooks for `profile` mode (DJG040–DJG042).
+
+Loaded via `pytest -p django_security_hunter.profile_pytest`."""
 
 from __future__ import annotations
 

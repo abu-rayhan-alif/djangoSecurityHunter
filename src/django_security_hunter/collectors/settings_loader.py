@@ -71,16 +71,16 @@ def _rest_framework_lists(settings: Any) -> dict[str, Any]:
     rates = rf.get("DEFAULT_THROTTLE_RATES")
     pag = rf.get("DEFAULT_PAGINATION_CLASS")
     page_size = rf.get("PAGE_SIZE")
+
+    def _as_seq(v: Any) -> list[Any]:
+        if isinstance(v, (list, tuple)):
+            return list(v)
+        return [v] if v is not None else []
+
     return {
-        "rest_default_permission_classes": [
-            _cls_repr(x) for x in (perms if isinstance(perms, (list, tuple)) else ([perms] if perms is not None else []))
-        ],
-        "rest_default_authentication_classes": [
-            _cls_repr(x) for x in (auths if isinstance(auths, (list, tuple)) else ([auths] if auths is not None else []))
-        ],
-        "rest_default_throttle_classes": [
-            _cls_repr(x) for x in (throttles if isinstance(throttles, (list, tuple)) else ([throttles] if throttles is not None else []))
-        ],
+        "rest_default_permission_classes": [_cls_repr(x) for x in _as_seq(perms)],
+        "rest_default_authentication_classes": [_cls_repr(x) for x in _as_seq(auths)],
+        "rest_default_throttle_classes": [_cls_repr(x) for x in _as_seq(throttles)],
         "rest_default_throttle_rates": dict(rates) if isinstance(rates, dict) else {},
         "rest_default_pagination_class": _cls_repr(pag) if pag is not None else None,
         "rest_page_size": page_size,

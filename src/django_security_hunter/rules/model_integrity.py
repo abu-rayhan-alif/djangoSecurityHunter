@@ -119,13 +119,15 @@ def run_model_integrity_rules(
                                 severity="WARN",
                                 title=f"Natural-key-like field {fname!r} may need unique=True",
                                 message=(
-                                    f"Model {model_name!r} defines {fname!r} as a {_field_label(cname)} "
-                                    "without unique=True; duplicates often cause subtle production bugs."
+                                    f"Model {model_name!r} defines {fname!r} as a "
+                                    f"{_field_label(cname)} without unique=True; duplicates "
+                                    "often cause subtle production bugs."
                                 ),
                                 path=rel,
                                 line=stmt.lineno,
                                 fix_hint=(
-                                    "Add unique=True, a UniqueConstraint, or document why duplicates are safe.\n"
+                                    "Add unique=True, a UniqueConstraint, or document why "
+                                    "duplicates are safe.\n"
                                 ),
                             )
                         )
@@ -143,13 +145,14 @@ def run_model_integrity_rules(
                                         title="CASCADE FK on audit-ish model",
                                         message=(
                                             f"Model {model_name!r} field {fname!r} uses "
-                                            "on_delete=CASCADE; cascading deletes on audit/log-style tables "
-                                            "can destroy evidence."
+                                            "on_delete=CASCADE; cascading deletes on "
+                                            "audit/log-style tables can destroy evidence."
                                         ),
                                         path=rel,
                                         line=stmt.lineno,
                                         fix_hint=(
-                                            "Prefer PROTECT, SET_NULL, or a soft-delete strategy for audit data.\n"
+                                            "Prefer PROTECT, SET_NULL, or a soft-delete strategy "
+                                            "for audit data.\n"
                                         ),
                                     )
                                 )

@@ -209,7 +209,9 @@ def _djg052_scan_statement(
         )
 
 
-def _djg052_scan_update_binop_without_f(tree: ast.AST, rel_path: str, findings: list[Finding]) -> None:
+def _djg052_scan_update_binop_without_f(
+    tree: ast.AST, rel_path: str, findings: list[Finding]
+) -> None:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -442,7 +444,8 @@ class _ConcurrencyVisitor(ast.NodeVisitor):
                             title="Possible check-then-act race (exists + create)",
                             message=(
                                 "Pattern uses .exists() (or similar) near .objects.create() "
-                                "without atomic DB constraint; concurrent requests can duplicate rows."
+                                "without atomic DB constraint; concurrent requests can "
+                                "duplicate rows."
                             ),
                             path=self.rel_path,
                             line=node.lineno,

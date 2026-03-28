@@ -23,7 +23,8 @@ class DjangoSecurityHunterProfilePlugin:
             for conn in connections.all():
                 conn.force_debug_cursor = True
         except Exception:
-            pass
+            # Django DB may be unavailable for non-Django test sessions.
+            return
 
     def pytest_runtest_setup(self, item) -> None:
         try:

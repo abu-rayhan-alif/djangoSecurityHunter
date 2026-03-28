@@ -90,7 +90,9 @@ def scan(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
@@ -114,7 +116,11 @@ def scan(
     )
     _warn_if_django_settings_not_loaded(report)
     _emit_formatted_report(
-        report, format, output, force_color=force_color, no_color=no_color
+        report,
+        output_format,
+        output,
+        force_color=force_color,
+        no_color=no_color,
     )
     _exit_by_threshold(report, eff_threshold)
 
@@ -125,7 +131,9 @@ def profile(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
@@ -148,7 +156,11 @@ def profile(
         project_root=project_root, settings_module=settings, cfg=cfg
     )
     _emit_formatted_report(
-        report, format, output, force_color=force_color, no_color=no_color
+        report,
+        output_format,
+        output,
+        force_color=force_color,
+        no_color=no_color,
     )
     _exit_by_threshold(report, eff_threshold)
 

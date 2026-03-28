@@ -70,7 +70,11 @@ def _make_profile_result_class(rows_out: list[dict[str, Any]]) -> type[unittest.
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv
     if len(argv) < 2:
-        print("usage: python -m django_security_hunter.django_profile_runner <project_root>", file=sys.stderr)
+        print(
+            "usage: python -m django_security_hunter.django_profile_runner "
+            "<project_root>",
+            file=sys.stderr,
+        )
         return 2
     project_root = Path(argv[1]).resolve()
     out = os.environ.get("DJANGOGUARD_PROFILE_OUT")

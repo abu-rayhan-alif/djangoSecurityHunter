@@ -153,8 +153,14 @@ class _StaticVisitor(ast.NodeVisitor):
                 "DJG072",
                 "HIGH",
                 "Insecure deserialization (pickle)",
-                "pickle can execute arbitrary code when loading untrusted data.",
-                "Use JSON, msgpack, or explicit safe schemas instead of pickle for untrusted input.\n",
+                (
+                    "pickle can execute arbitrary code when loading untrusted "
+                    "data."
+                ),
+                (
+                    "Use JSON, msgpack, or explicit safe schemas instead of "
+                    "pickle for untrusted input.\n"
+                ),
                 node.lineno,
             )
         if name == "marshal" and fn.attr == "loads":
@@ -190,7 +196,10 @@ class _StaticVisitor(ast.NodeVisitor):
                 "HIGH",
                 "Unsafe yaml.load",
                 "yaml.load without SafeLoader can execute arbitrary objects.",
-                "Use yaml.safe_load() or yaml.load(..., Loader=yaml.SafeLoader).\n",
+                (
+                    "Use yaml.safe_load() or yaml.load(..., "
+                    "Loader=yaml.SafeLoader).\n"
+                ),
                 node.lineno,
             )
 
@@ -200,7 +209,10 @@ class _StaticVisitor(ast.NodeVisitor):
                 "DJG072",
                 "HIGH",
                 f"{node.func.id}() used",
-                f"{node.func.id} executes arbitrary Python code and must not process untrusted input.",
+                (
+                    f"{node.func.id} executes arbitrary Python code and must "
+                    "not process untrusted input."
+                ),
                 "Remove or replace with a safe parser or allow-list.\n",
                 node.lineno,
             )
@@ -219,9 +231,13 @@ class _StaticVisitor(ast.NodeVisitor):
                     "WARN",
                     "HTTP client get() with non-literal URL",
                     (
-                        f"{fn.value.id}.get() may fetch user-controlled URLs (SSRF / open redirect)."
+                        f"{fn.value.id}.get() may fetch user-controlled URLs "
+                        "(SSRF / open redirect)."
                     ),
-                    "Validate URLs against an allow-list; block private/link-local IPs.\n",
+                    (
+                        "Validate URLs against an allow-list; block private/"
+                        "link-local IPs.\n"
+                    ),
                     node.lineno,
                 )
 
@@ -289,7 +305,10 @@ class _StaticVisitor(ast.NodeVisitor):
                     "DJG074",
                     "WARN",
                     "Hardcoded secret-like assignment",
-                    f"Variable {t.id!r} is assigned a long string literal; may be a committed secret.",
+                    (
+                        f"Variable {t.id!r} is assigned a long string literal; "
+                        "may be a committed secret."
+                    ),
                     "Load secrets from the environment or a secrets manager.\n",
                     node.lineno,
                 )
@@ -320,8 +339,9 @@ class _StaticVisitor(ast.NodeVisitor):
                                         "hidden or internal fields may leak via the API."
                                     ),
                                     (
-                                        "Replace Meta.fields = \"__all__\" with an explicit tuple/list "
-                                        "of safe fields, or use Meta.exclude for known-private fields.\n"
+                                        "Replace Meta.fields = \"__all__\" with an "
+                                        "explicit tuple/list of safe fields, or use "
+                                        "Meta.exclude for known-private fields.\n"
                                     ),
                                     inner.lineno,
                                 )
