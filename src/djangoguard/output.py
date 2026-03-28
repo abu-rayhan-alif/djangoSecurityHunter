@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .models import Report
+from .models import Report, SEVERITY_ORDER, _severity_rank
 
 
 def _sarif_file_uri(path: str) -> str:
@@ -97,9 +97,9 @@ def as_sarif(report: Report) -> str:
 
 
 def _sarif_level(severity: str) -> str:
-    normalized = severity.upper()
-    if normalized in {"CRITICAL", "HIGH"}:
+    r = _severity_rank(severity)
+    if r >= SEVERITY_ORDER["HIGH"]:
         return "error"
-    if normalized == "WARN":
+    if r >= SEVERITY_ORDER["WARN"]:
         return "warning"
     return "note"

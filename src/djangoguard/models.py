@@ -15,6 +15,12 @@ SEVERITY_ORDER = {
 VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
 
 
+def _severity_rank(severity: str) -> int:
+    """Numeric rank for ordering and threshold checks (unknown values fail-safe as HIGH)."""
+    s = severity.strip().upper()
+    return SEVERITY_ORDER.get(s, SEVERITY_ORDER["HIGH"])
+
+
 @dataclass(slots=True)
 class Finding:
     rule_id: str
@@ -58,13 +64,13 @@ class Report:
             t = "WARN"
         threshold_value = SEVERITY_ORDER[t]
         return any(
-            SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
+            _severity_rank(finding.severity) >= threshold_value
             for finding in self.findings
         )
 
     def sorted_findings(self) -> list[Finding]:
         def sort_key(f: Finding) -> tuple[int, str, str, int]:
-            severity_value = SEVERITY_ORDER.get(f.severity.upper(), 0)
+            severity_value = _severity_rank(f.severity)
             # Higher severity first -> negate for descending
             return (
                 -severity_value,

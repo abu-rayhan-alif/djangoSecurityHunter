@@ -77,10 +77,10 @@ _SENSITIVE_WARN = re.compile(
 )
 
 
-def _iter_project_py_files(project_root: Path) -> Iterable[Path]:
-    """Yield *.py files under project_root only (resolved paths; skips symlink escapes)."""
+def _iter_project_glob(project_root: Path, pattern: str) -> Iterable[Path]:
+    """Yield files matching ``pattern`` under project_root (symlink-safe, skips junk dirs)."""
     root = project_root.resolve()
-    for p in root.rglob("*.py"):
+    for p in root.rglob(pattern):
         try:
             resolved = p.resolve()
         except OSError:
@@ -95,6 +95,11 @@ def _iter_project_py_files(project_root: Path) -> Iterable[Path]:
         if any(part in _SKIP_DIR_NAMES for part in resolved.parts):
             continue
         yield resolved
+
+
+def _iter_project_py_files(project_root: Path) -> Iterable[Path]:
+    """Yield *.py files under project_root only (resolved paths; skips symlink escapes)."""
+    yield from _iter_project_glob(project_root, "*.py")
 
 
 def scan_auth_like_url_hits(project_root: Path) -> list[tuple[str, int, str]]:

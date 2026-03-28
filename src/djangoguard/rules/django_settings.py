@@ -524,6 +524,8 @@ def run_django_settings_scan(
     findings.extend(_djg011_cors_allow_all(ctx))
     findings.extend(_djg012_cors_permissive_allowlist(ctx))
     findings.extend(_djg026_request_upload_limits(ctx))
+    # Do not retain raw SECRET_KEY on ctx (passed to later stages; avoids accidental leaks).
+    ctx.pop("secret_key", None)
     return findings, ctx
 
 
