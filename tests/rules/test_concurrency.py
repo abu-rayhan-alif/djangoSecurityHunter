@@ -99,3 +99,17 @@ def test_djg050_try_get_then_create(tmp_path: Path) -> None:
     assert any(
         f.rule_id == "DJG050" and "get" in (f.title or "").lower() for f in findings
     )
+
+
+def test_djg051_with_block_no_crash(tmp_path: Path) -> None:
+    """ast.With has no orelse; walker must not assume If/For shape."""
+    p = tmp_path / "ctx.py"
+    p.write_text(
+        "def go(a, b):\n"
+        "    with open('x'):\n"
+        "        a.save()\n"
+        "        b.save()\n",
+        encoding="utf-8",
+    )
+    findings = list(run_concurrency_rules(tmp_path))
+    assert any(f.rule_id == "DJG051" for f in findings)

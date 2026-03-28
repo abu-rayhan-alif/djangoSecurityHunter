@@ -270,8 +270,6 @@ def _djg052_walk_stmt(
     if isinstance(stmt, ast.With):
         for s in stmt.body:
             _djg052_walk_stmt(s, rel_path, findings, enclosing)
-        for s in stmt.orelse:
-            _djg052_walk_stmt(s, rel_path, findings, enclosing)
         return
     if isinstance(stmt, ast.Try):
         for s in stmt.body:
@@ -312,8 +310,6 @@ def _block_has_transaction_atomic(stmts: list[ast.stmt]) -> bool:
                 if _is_atomic_context_expr(item.context_expr):
                     return True
             if _block_has_transaction_atomic(st.body):
-                return True
-            if _block_has_transaction_atomic(st.orelse):
                 return True
         elif isinstance(st, ast.If):
             if _block_has_transaction_atomic(st.body) or _block_has_transaction_atomic(
@@ -358,7 +354,7 @@ def _count_saves_in_stmt(st: ast.stmt) -> int:
     if isinstance(st, ast.If):
         return _count_saves_in_stmt_list(st.body) + _count_saves_in_stmt_list(st.orelse)
     if isinstance(st, ast.With):
-        return _count_saves_in_stmt_list(st.body) + _count_saves_in_stmt_list(st.orelse)
+        return _count_saves_in_stmt_list(st.body)
     if isinstance(st, (ast.For, ast.While)):
         return _count_saves_in_stmt_list(st.body) + _count_saves_in_stmt_list(st.orelse)
     if isinstance(st, ast.Try):
