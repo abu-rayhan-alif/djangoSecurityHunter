@@ -21,21 +21,87 @@ Static and config checks · optional query profiling · **SARIF** for GitHub Cod
 
 **Install:** `pip install django-security-hunter` · **CLI:** `django_security_hunter` or `djangoguard`
 
-[Quick start](#quick-start) · [CI examples](#use-in-github--gitlab-ci) · [Rule catalog](docs/rules.md) · [Issues](https://github.com/abu-rayhan-alif/djangoGuard/issues)
+[Install & run](#install-and-run) · [At a glance](#at-a-glance-what-gets-checked) · [Quick start](#quick-start) · [CI](#use-in-github--gitlab-ci) · [Rules](docs/rules.md) · [**GitHub** (star / contribute)](https://github.com/abu-rayhan-alif/djangoGuard) · [Issues](https://github.com/abu-rayhan-alif/djangoGuard/issues)
 
 Maintained by [Abu Rayhan Alif](https://github.com/abu-rayhan-alif)
 
 </div>
 
 > [!TIP]
-> **New here?** Install with `pip install django-security-hunter`, then follow [Quick start](#quick-start) (local scan) and [Use in GitHub / GitLab CI](#use-in-github--gitlab-ci) (automation).
+> **New here?** Use [Install and run](#install-and-run) below, then [Quick start](#quick-start) and [CI](#use-in-github--gitlab-ci) when you automate.
+
+---
+
+## Install and run
+
+This package is a **standalone CLI** (it does **not** register a `manage.py` subcommand). From your **Django project root** (the directory that contains `manage.py`):
+
+```bash
+pip install django-security-hunter
+django_security_hunter scan --project . --settings yourproject.settings --format console
+```
+
+Replace `yourproject.settings` with the same module you use for `DJANGO_SETTINGS_MODULE` (for example `config.settings` or `mysite.settings`). Omitting `--settings` still runs many file-based checks, but **Django settings rules** (e.g. `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, HTTPS cookies) are skipped.
+
+**Shorthand CLI name:** `djangoguard` (same program).
+
+**Optional:** write reports to disk as JSON or SARIF (for GitHub Code Scanning):
+
+```bash
+django_security_hunter scan --project . --settings yourproject.settings --format json --output reports/scan.json
+django_security_hunter scan --project . --settings yourproject.settings --format sarif --output reports/scan.sarif
+```
+
+PyPI **Project links** (Homepage, Source, Issues, Documentation, Changelog) come from `[project.urls]` in `pyproject.toml` and point at this repo so you can **star**, **fork**, or **open PRs** on GitHub.
+
+---
+
+## At a glance: what gets checked
+
+High-level checklist of what the scanner looks for (details and rule IDs: **[docs/rules.md](docs/rules.md)** and [What it finds](#what-it-finds)):
+
+**Django production settings**
+
+- `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`
+- HTTPS redirect, HSTS, secure session / CSRF cookies
+- `SECURE_CONTENT_TYPE_NOSNIFF`, `X_FRAME_OPTIONS`
+- `CSRF_TRUSTED_ORIGINS`, CORS configuration (`CORS_ALLOW_ALL_ORIGINS`, allowlists)
+- Very large request / upload limits (DoS-style misconfiguration)
+
+**Django REST Framework**
+
+- Default permission and authentication classes (e.g. missing vs `AllowAny`)
+- Throttling disabled or weak for auth-like routes (`urls.py` heuristics)
+- Serializers with `fields = "__all__"` (extra scrutiny on sensitive-looking serializer names)
+- Global list pagination and upload-related settings
+- Per-view `AllowAny` on DRF-style classes (review hint, not full authz proof)
+
+**Static analysis (Python + templates)**
+
+- XSS-prone patterns (`mark_safe`, `SafeString`, disabling template auto-escaping)
+- SSRF-style outbound HTTP when the URL is not a fixed string (heuristic)
+- Risky deserialization and `eval` / `exec`
+- Secrets in logging calls and hardcoded secret-like names
+
+**Models, concurrency, performance**
+
+- Natural-key / identifier fields without uniqueness; risky `CASCADE` edges
+- Race-prone ORM patterns, missing `transaction.atomic`, counters without `F()` / locking
+- Per-test query count, repeated SQL shapes, DB time (profile mode); static N+1-style hints
+
+**Optional integrations**
+
+- **pip-audit** (vulnerable dependencies), **Bandit**, **Semgrep** (enable in config or environment)
 
 ---
 
 <details>
 <summary><strong>Contents</strong></summary>
 
+- [Install and run](#install-and-run)
+- [At a glance: what gets checked](#at-a-glance-what-gets-checked)
 - [Why django_security_hunter](#why-django_security_hunter)
+- [What it finds](#what-it-finds)
 - [Features](#features)
 - [Documentation](#documentation)
 - [Requirements](#requirements)
@@ -62,6 +128,64 @@ Maintained by [Abu Rayhan Alif](https://github.com/abu-rayhan-alif)
 ## Why django_security_hunter
 
 AI-assisted coding speeds up delivery but can hide risky backend patterns. This tool gives **fast, actionable feedback** in the editor and in **CI**, before code ships.
+
+## What it finds
+
+`django-security-hunter` combines **loaded Django settings** (when you pass `--settings`), **static analysis** of Python and HTML templates, optional **pytest-based query profiling**, and optional **pip-audit / Bandit / Semgrep**. Findings use stable rule IDs (**DJG001** … **DJG062**); the full catalog with severities and fix hints is in **[docs/rules.md](docs/rules.md)**.
+
+Below is what each area is meant to catch. Most rules are **heuristic**—useful for triage, not a substitute for manual review or penetration testing.
+
+### Django settings (`settings.py` and related)
+
+| Topic | Examples (rule IDs) |
+|------|----------------------|
+| **Production safety** | `DEBUG=True`, weak or hardcoded `SECRET_KEY`, empty / wildcard `ALLOWED_HOSTS` (**DJG001–DJG003**) |
+| **HTTPS & cookies** | Missing or weak `SECURE_SSL_REDIRECT`, HSTS, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` (**DJG004–DJG007**) |
+| **Browser hardening** | `SECURE_CONTENT_TYPE_NOSNIFF`, `X_FRAME_OPTIONS` (**DJG008–DJG009**) |
+| **CSRF & CORS** | Over-broad `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOW_ALL_ORIGINS`, loose CORS allowlists (**DJG010–DJG012**) |
+| **Upload / DoS-style limits** | Very large `DATA_UPLOAD_MAX_MEMORY_SIZE` / related Django limits (**DJG026**, also checked from settings) |
+
+### Django REST Framework (API surface)
+
+| Topic | Examples (rule IDs) |
+|------|----------------------|
+| **Defaults too open** | Missing or `AllowAny` default permissions; missing default authentication classes (**DJG020–DJG021**) |
+| **Abuse & discovery** | Throttling disabled globally; auth-like URL patterns without matching throttle discipline (**DJG022–DJG023**) |
+| **Data exposure** | `Meta.fields = "__all__"` on serializers—**escalated** when the serializer name looks sensitive (e.g. user/payment-style) (**DJG024**) |
+| **Operational limits** | No global list pagination; very large upload settings (**DJG025–DJG026**) |
+| **Per-view permissions** | DRF-style classes that list `AllowAny`—**review only**, not full object-level authz (**DJG027**) |
+
+### Static code patterns (`.py` and templates)
+
+| Topic | Examples (rule IDs) |
+|------|----------------------|
+| **XSS-style footguns** | `mark_safe`, `SafeString`, templates that force raw HTML (`safe` filter, `{% autoescape off %}`) (**DJG070**) |
+| **SSRF-style calls** | `requests` / `httpx` `.get()` (and similar) where the URL is not a constant string—**heuristic** (**DJG071**) |
+| **Unsafe deserialization & code execution** | `pickle` / `marshal`, unsafe YAML loaders, `eval` / `exec` (**DJG072**) |
+| **Secrets in logs** | Logging calls that likely include passwords, tokens, or `Authorization` (**DJG073**) |
+| **Hardcoded secrets** | Assignments to names like `SECRET_*`, `API_KEY`, `PASSWORD`, etc. (**DJG074**) |
+
+### Models, concurrency, and performance
+
+| Topic | Examples (rule IDs) |
+|------|----------------------|
+| **Schema hints** | Identifier-like fields without uniqueness; risky `on_delete=CASCADE` toward sensitive-related models (**DJG080–DJG081**) |
+| **Concurrency** | Check-then-create races, writes outside `transaction.atomic`, counter updates without `F()` / locking hints (**DJG050–DJG052**) |
+| **ORM / SQL behaviour** | High query counts, repeated SQL shapes, or high DB time **per test** (profile mode); static loop/queryset N+1-style hints (**DJG040–DJG042**, **DJG045**) |
+
+### Dependencies and external scanners (optional)
+
+| Tool | Role |
+|------|------|
+| **pip-audit** | Known vulnerable dependencies (**DJG060**) |
+| **Bandit** | Broader Python security issues reported by Bandit (**DJG061**) |
+| **Semgrep** | Community / custom rules (e.g. Django/Python packs)—can surface **additional** issue classes (**DJG062**) |
+
+### What is *not* a built-in guarantee
+
+- **SQL injection:** there is **no dedicated first-party SQLi rule**. Prefer the Django ORM, parameterized queries, and—if you need static coverage—enable **Semgrep** or **Bandit** with rulesets that match your stack.
+- **Authorization:** **DJG027** flags permissive DRF permissions; it does **not** prove or disprove object-level access control.
+- **False positives / negatives:** documented per rule in [docs/rules.md](docs/rules.md); tune `--threshold` and optional scanners for your risk appetite.
 
 ## Features
 
