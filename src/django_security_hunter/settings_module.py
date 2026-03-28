@@ -1,5 +1,7 @@
 """Dotted Django settings module names: normalize and reject unsafe values."""
 
+from __future__ import annotations
+
 
 class InvalidSettingsModule(ValueError):
     """Raised when a settings module string is not a safe dotted import path."""

@@ -91,13 +91,21 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 ---
 
-## Dependency and External Scanner Integration Rules (DJG-11, Optional)
+## Dependency and External Scanner Integration Rules (DJG-11)
+
+Enable tools via `enable_pip_audit`, `enable_bandit`, or `enable_semgrep` in config, or CLI flags `--pip-audit`, `--bandit`, `--semgrep` (and `--no-*` to force off). Requires the corresponding CLI on `PATH` / `python -m` where applicable.
 
 | Rule ID | Severity | Status | Description | Typical Fix |
 |---|---|---|---|---|
-| DJG060 | HIGH/CRITICAL | planned | `pip-audit` reports vulnerable dependency | Upgrade or replace vulnerable package |
+| DJG060 | HIGH/CRITICAL | implemented | `pip-audit` reports high/critical vulnerable dependency | Upgrade/pin to fixed versions; re-lock deps |
+| DJG061 | INFO–HIGH | implemented | Bandit finding (`python -m bandit`) | Address per Bandit test ID or narrow `# nosec` with rationale |
+| DJG062 | INFO–HIGH | implemented | Semgrep finding (`semgrep scan --config=p/python`) | Fix per rule message or document false-positive suppressions |
 
 ---
+
+## Report output (DJG-9)
+
+JSON reports include `schema_version` (`django_security_hunter.report.v1`) and `tool.name` / `tool.version` for stable automation. SARIF output is **v2.1.0** with `tool.driver.rules`, `results[].ruleIndex`, and `columnKind` for GitHub Code Scanning. See the repository **README** for CLI and CI examples.
 
 ## Design Principles for Rule Authors
 
@@ -111,3 +119,4 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 Some rules intentionally use best-effort heuristics.  
 Heuristic results should be interpreted with engineering judgment and confirmed manually before major architectural changes.
+

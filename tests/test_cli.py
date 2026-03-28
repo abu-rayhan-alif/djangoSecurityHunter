@@ -1,18 +1,32 @@
 import pytest
 import typer
+from typer.testing import CliRunner
 
-from django_security_hunter.cli import _cli_settings_module, _render_report
+from django_security_hunter.cli import (
+    _cli_settings_module,
+    _render_report,
+    app,
+)
 from django_security_hunter.models import Report
 from django_security_hunter.settings_module import (
     InvalidSettingsModule,
     normalize_django_settings_module,
 )
 
+runner = CliRunner()
+
 
 def test_normalize_none_and_blank() -> None:
     assert normalize_django_settings_module(None) is None
     assert normalize_django_settings_module("") is None
     assert normalize_django_settings_module("   ") is None
+
+
+def test_scan_console_runs() -> None:
+    result = runner.invoke(app, ["scan", "--format", "console"])
+    assert result.exit_code == 0
+    assert "django_security_hunter report (scan)" in result.stdout
+    assert "Django settings were not loaded" in result.stderr
 
 
 def test_normalize_accepts_dotted() -> None:
@@ -63,3 +77,12 @@ def test_render_report_rejects_blank_format() -> None:
     report = Report(mode="scan", findings=[])
     with pytest.raises(typer.BadParameter):
         _render_report(report, "   ")
+
+
+def test_scan_rejects_invalid_threshold() -> None:
+    result = runner.invoke(
+        app, ["scan", "--format", "console", "--threshold", "SUPERBAD"]
+    )
+    assert result.exit_code != 0
+    combined = result.stdout + (result.stderr or "")
+    assert "threshold must be one of" in combined

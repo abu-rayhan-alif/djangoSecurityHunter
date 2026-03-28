@@ -18,6 +18,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.2.0",
+  "pytest-django>=4.8",
+  "pip-audit>=2.6",
+  "bandit[toml]>=1.7.5",
 ]
 
 [project.scripts]
@@ -33,3 +36,6 @@ where = ["src"]
 severity_threshold = "WARN"
 query_count_threshold = 50
 db_time_ms_threshold = 200
+enable_pip_audit = false
+enable_bandit = false
+enable_semgrep = false

@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from .package_meta import REPORT_JSON_SCHEMA_VERSION, package_version
+
 
 def _coerce_optional_int(value: Any) -> int | None:
     """Normalize line/column to a non-negative int or None (runtime safety)."""
@@ -28,6 +30,12 @@ SEVERITY_ORDER = {
 }
 
 VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
+
+
+def _normalize_severity_key(severity: object) -> str:
+    if severity is None:
+        return ""
+    return str(severity).strip().upper()
 
 
 @dataclass(slots=True)
@@ -65,6 +73,8 @@ class Report:
     def to_dict(self) -> dict[str, Any]:
         sorted_findings = self.sorted_findings()
         return {
+            "schema_version": REPORT_JSON_SCHEMA_VERSION,
+            "tool": {"name": "django_security_hunter", "version": package_version()},
             "mode": self.mode,
             "generated_at": self.generated_at,
             "metadata": self.metadata,
@@ -77,13 +87,14 @@ class Report:
             t = "WARN"
         threshold_value = SEVERITY_ORDER[t]
         return any(
-            SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
+            SEVERITY_ORDER.get(_normalize_severity_key(finding.severity), 0)
+            >= threshold_value
             for finding in self.findings
         )
 
     def sorted_findings(self) -> list[Finding]:
         def sort_key(f: Finding) -> tuple[int, str, str, int]:
-            severity_value = SEVERITY_ORDER.get(f.severity.upper(), 0)
+            severity_value = SEVERITY_ORDER.get(_normalize_severity_key(f.severity), 0)
             # Higher severity first -> negate for descending
             return (
                 -severity_value,

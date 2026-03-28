@@ -8,3 +8,4 @@ services:
     volumes:
       - ./:/app
     command: django_security_hunter scan --project /app --format console
+

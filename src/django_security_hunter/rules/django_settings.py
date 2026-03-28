@@ -466,3 +466,4 @@ def run_django_settings_rules(
 ) -> Iterable[Finding]:
     findings, _ = run_django_settings_scan(project_root, settings_module)
     return findings
+

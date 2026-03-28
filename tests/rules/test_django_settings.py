@@ -395,3 +395,4 @@ assert "DJG001" in ids, ids
         check=False,
     )
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
+

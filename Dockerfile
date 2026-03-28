@@ -11,3 +11,4 @@ COPY src ./src
 RUN pip install --no-cache-dir -e .
 
 CMD ["django_security_hunter", "scan", "--project", "/app", "--format", "console"]
+
