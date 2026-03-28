@@ -9,6 +9,7 @@ def test_scan_console_runs() -> None:
     result = runner.invoke(app, ["scan", "--format", "console"])
     assert result.exit_code == 0
     assert "djangoguard report (scan)" in result.stdout
+    assert "Django settings were not loaded" in result.stderr
 
 
 def test_scan_json_runs() -> None:
@@ -21,3 +22,12 @@ def test_profile_sarif_runs() -> None:
     result = runner.invoke(app, ["profile", "--format", "sarif"])
     assert result.exit_code == 0
     assert '"version": "2.1.0"' in result.stdout
+
+
+def test_scan_rejects_invalid_threshold() -> None:
+    result = runner.invoke(
+        app, ["scan", "--format", "console", "--threshold", "SUPERBAD"]
+    )
+    assert result.exit_code != 0
+    combined = result.stdout + (result.stderr or "")
+    assert "threshold must be one of" in combined

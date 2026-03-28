@@ -57,58 +57,67 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
         return base
 
     root_str = str(root)
+    path_inserted = False
     if root_str not in sys.path:
         sys.path.insert(0, root_str)
+        path_inserted = True
 
     try:
-        import django
-        from django.conf import settings
+        try:
+            import django
+            from django.conf import settings
 
-        if not settings.configured:
-            os.environ["DJANGO_SETTINGS_MODULE"] = module
-            django.setup()
+            if not settings.configured:
+                os.environ["DJANGO_SETTINGS_MODULE"] = module
+                django.setup()
 
-        debug = bool(getattr(settings, "DEBUG", False))
-        sk_raw = getattr(settings, "SECRET_KEY", None)
-        secret_key = "" if sk_raw is None else str(sk_raw)
-        base.update(
-            {
-                "loaded": True,
-                "debug": debug,
-                "secret_key": secret_key,
-                "allowed_hosts": _allowed_hosts_list(settings),
-                "secure_ssl_redirect": bool(
-                    getattr(settings, "SECURE_SSL_REDIRECT", False)
-                ),
-                "hsts_seconds": _hsts_seconds(settings),
-                "session_cookie_secure": bool(
-                    getattr(settings, "SESSION_COOKIE_SECURE", False)
-                ),
-                "csrf_cookie_secure": bool(
-                    getattr(settings, "CSRF_COOKIE_SECURE", False)
-                ),
-                "secure_content_type_nosniff": bool(
-                    getattr(settings, "SECURE_CONTENT_TYPE_NOSNIFF", True)
-                ),
-                "x_frame_options": str(
-                    getattr(settings, "X_FRAME_OPTIONS", "DENY") or ""
-                ),
-                "csrf_trusted_origins": _str_list_setting(
-                    settings, "CSRF_TRUSTED_ORIGINS"
-                ),
-                "cors_active": _cors_active(settings),
-                "cors_allow_all_origins": bool(
-                    getattr(settings, "CORS_ALLOW_ALL_ORIGINS", False)
-                ),
-                "cors_allowed_origins": _str_list_setting(
-                    settings, "CORS_ALLOWED_ORIGINS"
-                ),
-                "cors_allowed_origin_regexes": _str_list_setting(
-                    settings, "CORS_ALLOWED_ORIGIN_REGEXES"
-                ),
-            }
-        )
-        return base
-    except Exception as exc:
-        base["load_error"] = str(exc)
-        return base
+            debug = bool(getattr(settings, "DEBUG", False))
+            sk_raw = getattr(settings, "SECRET_KEY", None)
+            secret_key = "" if sk_raw is None else str(sk_raw)
+            base.update(
+                {
+                    "loaded": True,
+                    "debug": debug,
+                    "secret_key": secret_key,
+                    "allowed_hosts": _allowed_hosts_list(settings),
+                    "secure_ssl_redirect": bool(
+                        getattr(settings, "SECURE_SSL_REDIRECT", False)
+                    ),
+                    "hsts_seconds": _hsts_seconds(settings),
+                    "session_cookie_secure": bool(
+                        getattr(settings, "SESSION_COOKIE_SECURE", False)
+                    ),
+                    "csrf_cookie_secure": bool(
+                        getattr(settings, "CSRF_COOKIE_SECURE", False)
+                    ),
+                    "secure_content_type_nosniff": bool(
+                        getattr(settings, "SECURE_CONTENT_TYPE_NOSNIFF", True)
+                    ),
+                    "x_frame_options": str(
+                        getattr(settings, "X_FRAME_OPTIONS", "DENY") or ""
+                    ),
+                    "csrf_trusted_origins": _str_list_setting(
+                        settings, "CSRF_TRUSTED_ORIGINS"
+                    ),
+                    "cors_active": _cors_active(settings),
+                    "cors_allow_all_origins": bool(
+                        getattr(settings, "CORS_ALLOW_ALL_ORIGINS", False)
+                    ),
+                    "cors_allowed_origins": _str_list_setting(
+                        settings, "CORS_ALLOWED_ORIGINS"
+                    ),
+                    "cors_allowed_origin_regexes": _str_list_setting(
+                        settings, "CORS_ALLOWED_ORIGIN_REGEXES"
+                    ),
+                }
+            )
+            return base
+        except Exception as exc:
+            base["load_error"] = str(exc)
+            return base
+    finally:
+        if path_inserted:
+            try:
+                sys.path.remove(root_str)
+            except ValueError:
+                pass

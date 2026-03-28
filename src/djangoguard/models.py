@@ -12,6 +12,8 @@ SEVERITY_ORDER = {
     "CRITICAL": 40,
 }
 
+VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
+
 
 @dataclass(slots=True)
 class Finding:
@@ -38,6 +40,8 @@ class Report:
     )
     findings: list[Finding] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Shown on stderr only; omitted from to_dict() / JSON / SARIF (avoids leaking paths).
+    settings_load_error_detail: str | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
         sorted_findings = self.sorted_findings()
@@ -49,7 +53,10 @@ class Report:
         }
 
     def has_threshold_hit(self, threshold: str) -> bool:
-        threshold_value = SEVERITY_ORDER.get(threshold.upper(), SEVERITY_ORDER["WARN"])
+        t = threshold.strip().upper()
+        if t not in SEVERITY_ORDER:
+            t = "WARN"
+        threshold_value = SEVERITY_ORDER[t]
         return any(
             SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
             for finding in self.findings

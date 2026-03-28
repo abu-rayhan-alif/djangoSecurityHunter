@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 from urllib.parse import urlparse
 
 from djangoguard.collectors.settings_loader import load_settings_context
@@ -439,12 +439,12 @@ def _djg012_cors_permissive_allowlist(ctx: dict) -> list[Finding]:
     ]
 
 
-def run_django_settings_rules(
+def run_django_settings_scan(
     project_root: Path, settings_module: str | None = None
-) -> Iterable[Finding]:
+) -> tuple[list[Finding], dict[str, Any]]:
     ctx = load_settings_context(project_root, settings_module)
     if not ctx.get("loaded"):
-        return []
+        return [], ctx
     findings: list[Finding] = []
     findings.extend(_djg001_debug(ctx))
     findings.extend(_djg002_secret_key(ctx))
@@ -458,4 +458,11 @@ def run_django_settings_rules(
     findings.extend(_djg010_csrf_trusted_origins(ctx))
     findings.extend(_djg011_cors_allow_all(ctx))
     findings.extend(_djg012_cors_permissive_allowlist(ctx))
+    return findings, ctx
+
+
+def run_django_settings_rules(
+    project_root: Path, settings_module: str | None = None
+) -> Iterable[Finding]:
+    findings, _ = run_django_settings_scan(project_root, settings_module)
     return findings

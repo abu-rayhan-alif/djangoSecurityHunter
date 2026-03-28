@@ -7,6 +7,7 @@ import typer
 
 from .config import load_config
 from .engine import run_profile, run_scan
+from .models import VALID_SEVERITY_THRESHOLDS
 from .output import as_console, as_json, as_sarif
 
 app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
@@ -37,6 +38,30 @@ def _exit_by_threshold(report, threshold: str) -> None:
         raise typer.Exit(code=2)
 
 
+def _warn_if_django_settings_not_loaded(report) -> None:
+    if report.mode != "scan":
+        return
+    if report.metadata.get("django_settings_loaded"):
+        return
+    parts = [
+        "Django settings were not loaded; DJG001–DJG012 rules were skipped."
+    ]
+    if sr := report.metadata.get("django_settings_skip_reason"):
+        parts.append(f"Reason: {sr}")
+    if err := report.settings_load_error_detail:
+        parts.append(err)
+    typer.secho(" ".join(parts), fg=typer.colors.YELLOW, err=True)
+
+
+def _effective_threshold(cli_value: str | None, config_default: str) -> str:
+    raw = (cli_value if cli_value is not None else config_default).strip().upper()
+    if raw not in VALID_SEVERITY_THRESHOLDS:
+        raise typer.BadParameter(
+            f"threshold must be one of: {', '.join(sorted(VALID_SEVERITY_THRESHOLDS))}"
+        )
+    return raw
+
+
 @app.command()
 def scan(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
@@ -51,10 +76,12 @@ def scan(
 ) -> None:
     project_root = project.resolve()
     cfg = load_config(project_root)
+    eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(project_root=project_root, settings_module=settings)
+    _warn_if_django_settings_not_loaded(report)
     rendered = _render_report(report, format)
     _emit(rendered, output)
-    _exit_by_threshold(report, threshold or cfg.severity_threshold)
+    _exit_by_threshold(report, eff_threshold)
 
 
 @app.command()
@@ -71,10 +98,11 @@ def profile(
 ) -> None:
     project_root = project.resolve()
     cfg = load_config(project_root)
+    eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_profile(project_root=project_root, settings_module=settings)
     rendered = _render_report(report, format)
     _emit(rendered, output)
-    _exit_by_threshold(report, threshold or cfg.severity_threshold)
+    _exit_by_threshold(report, eff_threshold)
 
 
 @app.command()
