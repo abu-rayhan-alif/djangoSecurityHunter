@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from djangoguard.rules import drf_security as drf_security_rules
+from django_security_hunter.rules import drf_security as drf_security_rules
 
 _FIXTURE_SCAN_ROOT = Path(__file__).resolve().parents[2] / "fixtures" / "drf_scan_empty"
 
@@ -348,7 +348,7 @@ def test_djg025_not_fired_when_pagination_configured(tmp_path: Path) -> None:
 
 
 def test_static_scan_skips_oversized_py_file(tmp_path: Path) -> None:
-    from djangoguard.collectors.drf_static_scan import (
+    from django_security_hunter.collectors.drf_static_scan import (
         _MAX_PY_SOURCE_BYTES,
         scan_auth_like_url_hits,
     )

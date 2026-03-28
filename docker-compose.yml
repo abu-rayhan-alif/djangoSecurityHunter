@@ -1,10 +1,11 @@
 services:
-  djangoguard:
+  django_security_hunter:
     build:
       context: .
       dockerfile: Dockerfile
-    image: djangoguard:local
+    image: django_security_hunter:local
     working_dir: /app
     volumes:
       - ./:/app
-    command: djangoguard scan --project /app --format console
+    command: django_security_hunter scan --project /app --format console
+

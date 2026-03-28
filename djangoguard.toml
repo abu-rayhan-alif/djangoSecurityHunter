@@ -1,3 +1,0 @@
-severity_threshold = "WARN"
-query_count_threshold = 50
-db_time_ms_threshold = 200
