@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -5,6 +6,12 @@ from typer.testing import CliRunner
 from django_security_hunter.cli import app
 
 runner = CliRunner()
+
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(s: str) -> str:
+    return _ANSI_ESCAPE.sub("", s)
 
 
 def test_scan_console_runs(tmp_path: Path) -> None:
@@ -31,7 +38,9 @@ def test_scan_console_force_color_uses_rich_layout(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == 0
-    assert "django_security_hunter report (scan)" in result.stdout
+    # Rich inserts ANSI between styled spans; full phrase is not one substring.
+    plain = _strip_ansi(result.stdout)
+    assert "django_security_hunter report (scan)" in plain
     assert "╭" in result.stdout or "─" in result.stdout
 
 
