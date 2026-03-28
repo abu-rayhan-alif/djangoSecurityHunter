@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Iterable
@@ -466,5 +466,4 @@ def run_django_settings_rules(
 ) -> Iterable[Finding]:
     findings, _ = run_django_settings_scan(project_root, settings_module)
     return findings
-
 

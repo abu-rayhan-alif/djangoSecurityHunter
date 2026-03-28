@@ -1,4 +1,4 @@
-﻿# django_security_hunter Rule Catalog
+# django_security_hunter Rule Catalog
 
 This document defines the rule IDs, severities, purpose, and remediation guidance for `django_security_hunter`.
 
@@ -103,6 +103,10 @@ Enable tools via `enable_pip_audit`, `enable_bandit`, or `enable_semgrep` in con
 
 ---
 
+## Report output (DJG-9)
+
+JSON reports include `schema_version` (`django_security_hunter.report.v1`) and `tool.name` / `tool.version` for stable automation. SARIF output is **v2.1.0** with `tool.driver.rules`, `results[].ruleIndex`, and `columnKind` for GitHub Code Scanning. See the repository **README** for CLI and CI examples.
+
 ## Design Principles for Rule Authors
 
 1. Rule IDs are stable and never reused for different semantics.
@@ -115,5 +119,4 @@ Enable tools via `enable_pip_audit`, `enable_bandit`, or `enable_semgrep` in con
 
 Some rules intentionally use best-effort heuristics.  
 Heuristic results should be interpreted with engineering judgment and confirmed manually before major architectural changes.
-
 

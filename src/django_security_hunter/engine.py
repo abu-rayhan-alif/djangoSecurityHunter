@@ -53,12 +53,13 @@ def run_scan(
 
 
 def run_profile(project_root: Path, settings_module: str | None = None) -> Report:
-    findings = []
-    findings.extend(run_profiling_rules())
+    cfg = load_config(project_root)
+    findings, prof_meta = run_profiling_rules(project_root, cfg, settings_module)
 
-    metadata = {
+    metadata: dict = {
         "project_root": str(project_root),
         "settings_module": settings_module,
-        "runner": "runtime-profile-skeleton",
+        "runner": "pytest-django-profile",
+        **prof_meta,
     }
     return Report(mode="profile", metadata=metadata, findings=findings)

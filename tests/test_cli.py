@@ -1,4 +1,4 @@
-﻿from typer.testing import CliRunner
+from typer.testing import CliRunner
 
 from django_security_hunter.cli import app
 
@@ -31,5 +31,4 @@ def test_scan_rejects_invalid_threshold() -> None:
     assert result.exit_code != 0
     combined = result.stdout + (result.stderr or "")
     assert "threshold must be one of" in combined
-
 

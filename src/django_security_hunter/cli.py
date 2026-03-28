@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
@@ -10,12 +10,15 @@ from .config import GuardConfig, load_config
 from .engine import run_profile, run_scan
 from .models import VALID_SEVERITY_THRESHOLDS
 from .output import as_console, as_json, as_sarif
+from .settings_module import InvalidSettingsModule, normalize_django_settings_module
 
 app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
 
 
 def _render_report(report, output_format: str) -> str:
-    fmt = output_format.lower()
+    fmt = output_format.strip().lower()
+    if not fmt:
+        raise typer.BadParameter("format must be one of: console, json, sarif")
     if fmt == "console":
         return as_console(report)
     if fmt == "json":
@@ -27,9 +30,13 @@ def _render_report(report, output_format: str) -> str:
 
 def _emit(content: str, output: Path | None) -> None:
     if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(content, encoding="utf-8")
-        typer.echo(f"Report written: {output}")
+        try:
+            out = output.expanduser()
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(content, encoding="utf-8")
+        except OSError as exc:
+            raise typer.BadParameter(f"Could not write report file: {exc}") from exc
+        typer.echo(f"Report written: {out}")
         return
     typer.echo(content)
 
@@ -52,6 +59,13 @@ def _warn_if_django_settings_not_loaded(report) -> None:
     if err := report.settings_load_error_detail:
         parts.append(err)
     typer.secho(" ".join(parts), fg=typer.colors.YELLOW, err=True)
+
+
+def _cli_settings_module(settings: str | None) -> str | None:
+    try:
+        return normalize_django_settings_module(settings)
+    except InvalidSettingsModule as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _merge_integration_overrides(
@@ -85,7 +99,9 @@ def scan(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
@@ -106,15 +122,18 @@ def scan(
         help="Run Semgrep (default: enable_semgrep in config)",
     ),
 ) -> None:
-    project_root = project.resolve()
+    project_root = project.expanduser().resolve()
+    settings_mod = _cli_settings_module(settings)
     cfg = load_config(project_root)
     eff_cfg = _merge_integration_overrides(cfg, pip_audit, bandit, semgrep)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(
-        project_root=project_root, settings_module=settings, cfg=eff_cfg
+        project_root=project_root,
+        settings_module=settings_mod,
+        cfg=eff_cfg,
     )
     _warn_if_django_settings_not_loaded(report)
-    rendered = _render_report(report, format)
+    rendered = _render_report(report, output_format)
     _emit(rendered, output)
     _exit_by_threshold(report, eff_threshold)
 
@@ -125,17 +144,20 @@ def profile(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
 ) -> None:
-    project_root = project.resolve()
+    project_root = project.expanduser().resolve()
+    settings_mod = _cli_settings_module(settings)
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
-    report = run_profile(project_root=project_root, settings_module=settings)
-    rendered = _render_report(report, format)
+    report = run_profile(project_root=project_root, settings_module=settings_mod)
+    rendered = _render_report(report, output_format)
     _emit(rendered, output)
     _exit_by_threshold(report, eff_threshold)
 
@@ -144,7 +166,7 @@ def profile(
 def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
-    project_root = project.resolve()
+    project_root = project.expanduser().resolve()
     target = project_root / "django_security_hunter.toml"
     if target.exists():
         typer.echo("django_security_hunter.toml already exists.")
@@ -159,7 +181,12 @@ def init(
         "enable_bandit = false\n"
         "enable_semgrep = false\n"
     )
-    target.write_text(sample, encoding="utf-8")
+    try:
+        target.write_text(sample, encoding="utf-8")
+    except OSError as exc:
+        raise typer.BadParameter(
+            f"Could not create django_security_hunter.toml: {exc}"
+        ) from exc
     typer.echo(f"Created {target}")
 
 
@@ -170,5 +197,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
 

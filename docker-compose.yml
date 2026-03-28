@@ -1,4 +1,4 @@
-﻿services:
+services:
   django_security_hunter:
     build:
       context: .
@@ -8,5 +8,4 @@
     volumes:
       - ./:/app
     command: django_security_hunter scan --project /app --format console
-
 

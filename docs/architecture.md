@@ -1,4 +1,4 @@
-﻿# django_security_hunter Architecture
+# django_security_hunter Architecture
 
 This document explains the current architecture of `django_security_hunter` and the intended evolution path for V1.
 
@@ -220,5 +220,4 @@ Current repository status:
 - CI, Docker, tests, and documentation baseline are in place
 
 This allows incremental ticket-by-ticket implementation while preserving stable public interfaces.
-
 
