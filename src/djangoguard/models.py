@@ -5,6 +5,21 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+def _coerce_optional_int(value: Any) -> int | None:
+    """Normalize line/column to a non-negative int or None (runtime safety)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 0 else None
+
+
 SEVERITY_ORDER = {
     "INFO": 10,
     "WARN": 20,
@@ -27,6 +42,10 @@ class Finding:
     fix_hint: str | None = None
     tags: list[str] = field(default_factory=list)
     references: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "line", _coerce_optional_int(self.line))
+        object.__setattr__(self, "column", _coerce_optional_int(self.column))
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

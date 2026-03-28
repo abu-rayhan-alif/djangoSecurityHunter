@@ -16,7 +16,7 @@ def run_scan(project_root: Path, settings_module: str | None = None) -> Report:
     findings.extend(dj_findings)
     findings.extend(run_drf_security_rules())
     findings.extend(run_static_pattern_rules())
-    findings.extend(run_concurrency_rules())
+    findings.extend(run_concurrency_rules(project_root))
 
     metadata: dict = {
         "project_root": str(project_root),

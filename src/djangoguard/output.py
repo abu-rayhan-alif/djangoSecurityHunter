@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from .models import Report
+
+
+def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
+    """SARIF requires positive integers; tolerate bad runtime values on Finding."""
+    if value is None:
+        return default
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    return max(1, n)
 
 
 def as_console(report: Report) -> str:
@@ -33,7 +45,8 @@ def as_console(report: Report) -> str:
 
 
 def as_json(report: Report) -> str:
-    return json.dumps(report.to_dict(), indent=2)
+    # Strict JSON (no NaN/Infinity) for safe interchange with other tools.
+    return json.dumps(report.to_dict(), indent=2, allow_nan=False)
 
 
 def as_sarif(report: Report) -> str:
@@ -61,15 +74,26 @@ def as_sarif(report: Report) -> str:
             "message": {"text": finding.message},
         }
         if finding.path:
+            p = Path(finding.path)
+            try:
+                uri = p.as_uri() if p.is_absolute() else finding.path.replace("\\", "/")
+            except ValueError:
+                uri = finding.path.replace("\\", "/")
             location = {
                 "physicalLocation": {
-                    "artifactLocation": {"uri": finding.path},
+                    "artifactLocation": {"uri": uri},
                 }
             }
             if finding.line is not None:
+                line = _sarif_positive_int(finding.line)
+                col = (
+                    _sarif_positive_int(finding.column)
+                    if finding.column is not None
+                    else 1
+                )
                 location["physicalLocation"]["region"] = {
-                    "startLine": finding.line,
-                    "startColumn": finding.column or 1,
+                    "startLine": line,
+                    "startColumn": col,
                 }
             result["locations"] = [location]
         results.append(result)
@@ -84,7 +108,7 @@ def as_sarif(report: Report) -> str:
             }
         ],
     }
-    return json.dumps(sarif, indent=2)
+    return json.dumps(sarif, indent=2, allow_nan=False)
 
 
 def _sarif_level(severity: str) -> str:

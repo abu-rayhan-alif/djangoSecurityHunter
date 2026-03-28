@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from djangoguard.settings_module import InvalidSettingsModule, normalize_django_settings_module
+
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:
     raw = getattr(settings, name, None)
@@ -46,7 +48,20 @@ def _allowed_hosts_list(settings: Any) -> list[str]:
 def load_settings_context(project_root: Path, settings_module: str | None) -> dict[str, Any]:
     """Load Django settings via ``DJANGO_SETTINGS_MODULE`` and ``django.setup()``."""
     root = project_root.resolve()
-    module = settings_module or os.environ.get("DJANGO_SETTINGS_MODULE")
+    raw = (
+        settings_module
+        if settings_module is not None
+        else os.environ.get("DJANGO_SETTINGS_MODULE")
+    )
+    try:
+        module = normalize_django_settings_module(raw)
+    except InvalidSettingsModule:
+        return {
+            "project_root": str(root),
+            "settings_module": None,
+            "loaded": False,
+            "skip_reason": "invalid_settings_module",
+        }
     base: dict[str, Any] = {
         "project_root": str(root),
         "settings_module": module,
