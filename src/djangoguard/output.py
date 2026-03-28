@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from .models import Report
+
+
+def _sarif_file_uri(path: str) -> str:
+    """RFC 3986 file URI for SARIF (avoids raw Windows backslashes in JSON)."""
+    try:
+        return Path(path).resolve().as_uri()
+    except (OSError, ValueError, RuntimeError):
+        return path
 
 
 def as_console(report: Report) -> str:
@@ -63,7 +72,7 @@ def as_sarif(report: Report) -> str:
         if finding.path:
             location = {
                 "physicalLocation": {
-                    "artifactLocation": {"uri": finding.path},
+                    "artifactLocation": {"uri": _sarif_file_uri(finding.path)},
                 }
             }
             if finding.line is not None:

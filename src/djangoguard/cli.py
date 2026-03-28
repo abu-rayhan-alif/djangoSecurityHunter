@@ -44,7 +44,7 @@ def _warn_if_django_settings_not_loaded(report) -> None:
     if report.metadata.get("django_settings_loaded"):
         return
     parts = [
-        "Django settings were not loaded; DJG001–DJG012 rules were skipped."
+        "Django settings were not loaded; settings-based rules were skipped."
     ]
     if sr := report.metadata.get("django_settings_skip_reason"):
         parts.append(f"Reason: {sr}")
