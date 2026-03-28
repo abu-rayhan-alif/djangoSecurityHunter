@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from djangoguard.collectors.concurrency_scan import scan_concurrency_findings
-from djangoguard.models import Finding
+from django_security_hunter.collectors.concurrency_scan import scan_concurrency_findings
+from django_security_hunter.models import Finding
 
 _DJG050_TITLE = "Possible check-then-create race on ORM"
 _DJG050_HINT = (

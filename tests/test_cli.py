@@ -1,9 +1,12 @@
 import pytest
 import typer
 
-from djangoguard.cli import _cli_settings_module, _render_report
-from djangoguard.models import Report
-from djangoguard.settings_module import InvalidSettingsModule, normalize_django_settings_module
+from django_security_hunter.cli import _cli_settings_module, _render_report
+from django_security_hunter.models import Report
+from django_security_hunter.settings_module import (
+    InvalidSettingsModule,
+    normalize_django_settings_module,
+)
 
 
 def test_normalize_none_and_blank() -> None:

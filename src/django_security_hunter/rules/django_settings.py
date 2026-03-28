@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
-from djangoguard.collectors.settings_loader import load_settings_context
-from djangoguard.models import Finding
+from django_security_hunter.collectors.settings_loader import load_settings_context
+from django_security_hunter.models import Finding
 
 _MIN_SECRET_KEY_LEN = 40
 

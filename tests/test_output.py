@@ -1,5 +1,5 @@
-from djangoguard.models import Finding, Report
-from djangoguard.output import as_sarif
+from django_security_hunter.models import Finding, Report
+from django_security_hunter.output import as_sarif
 
 
 def test_as_sarif_tolerates_non_numeric_line_column() -> None:

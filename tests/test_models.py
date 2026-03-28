@@ -1,4 +1,4 @@
-from djangoguard.models import Finding
+from django_security_hunter.models import Finding
 
 
 def test_finding_coerces_string_line_to_int() -> None:

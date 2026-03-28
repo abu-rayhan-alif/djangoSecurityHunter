@@ -20,7 +20,7 @@ def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
 
 def as_console(report: Report) -> str:
     lines: list[str] = [
-        f"djangoguard report ({report.mode})",
+        f"django_security_hunter report ({report.mode})",
         f"generated_at: {report.generated_at}",
         f"findings: {len(report.findings)}",
     ]
@@ -103,7 +103,7 @@ def as_sarif(report: Report) -> str:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "djangoguard", "rules": rules}},
+                "tool": {"driver": {"name": "django_security_hunter", "rules": rules}},
                 "results": results,
             }
         ],

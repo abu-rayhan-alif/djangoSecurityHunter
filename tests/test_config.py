@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from djangoguard.config import GuardConfig, load_config
+from django_security_hunter.config import GuardConfig, load_config
 
 
 def test_load_config_skips_oversized_toml(tmp_path: Path) -> None:
@@ -19,7 +19,7 @@ def test_load_config_skips_malformed_toml(tmp_path: Path) -> None:
 
 def test_load_config_ignores_non_dict_tool_section(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[tool]\ndjangoguard = "oops"\n',
+        '[tool]\ndjango_security_hunter = "oops"\n',
         encoding="utf-8",
     )
     cfg = load_config(tmp_path)
@@ -27,7 +27,7 @@ def test_load_config_ignores_non_dict_tool_section(tmp_path: Path) -> None:
 
 
 def test_safe_int_clamps_huge_value(tmp_path: Path) -> None:
-    (tmp_path / "djangoguard.toml").write_text(
+    (tmp_path / "django_security_hunter.toml").write_text(
         "query_count_threshold = 9999999999999999999999999999999\n",
         encoding="utf-8",
     )

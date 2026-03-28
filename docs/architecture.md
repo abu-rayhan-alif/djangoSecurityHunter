@@ -1,6 +1,6 @@
-# djangoguard Architecture
+# django_security_hunter Architecture
 
-This document explains the current architecture of `djangoguard` and the intended evolution path for V1.
+This document explains the current architecture of `django_security_hunter` and the intended evolution path for V1.
 
 ## Goals
 
@@ -11,27 +11,27 @@ This document explains the current architecture of `djangoguard` and the intende
 
 ## High-Level Components
 
-1. **CLI Layer** (`src/djangoguard/cli.py`)
+1. **CLI Layer** (`src/django_security_hunter/cli.py`)
    - Parses command-line arguments (`scan`, `profile`, `init`)
    - Loads configuration and threshold values
    - Runs engine mode and dispatches output writer
    - Returns CI-friendly exit codes
 
-2. **Configuration Layer** (`src/djangoguard/config.py`)
-   - Reads `pyproject.toml` (`[tool.djangoguard]`)
-   - Reads `djangoguard.toml` project override
+2. **Configuration Layer** (`src/django_security_hunter/config.py`)
+   - Reads `pyproject.toml` (`[tool.django_security_hunter]`)
+   - Reads `django_security_hunter.toml` project override
    - Produces a normalized runtime config object
 
-3. **Engine Layer** (`src/djangoguard/engine.py`)
+3. **Engine Layer** (`src/django_security_hunter/engine.py`)
    - Owns execution flow for `scan` and `profile`
    - Builds report metadata
    - Executes registered rules (current skeleton returns empty findings)
 
-4. **Domain Model Layer** (`src/djangoguard/models.py`)
+4. **Domain Model Layer** (`src/django_security_hunter/models.py`)
    - Defines `Finding` schema and `Report` aggregate
    - Provides deterministic threshold evaluation for exit behavior
 
-5. **Output Layer** (`src/djangoguard/output.py`)
+5. **Output Layer** (`src/django_security_hunter/output.py`)
    - Converts report into:
      - Console output
      - JSON output
@@ -41,7 +41,7 @@ This document explains the current architecture of `djangoguard` and the intende
 
 ### `scan` mode
 
-1. User runs `djangoguard scan ...`
+1. User runs `django_security_hunter scan ...`
 2. CLI resolves project root and settings module input
 3. Config is loaded from TOML sources
 4. Engine executes scan pipeline
@@ -50,7 +50,7 @@ This document explains the current architecture of `djangoguard` and the intende
 
 ### `profile` mode
 
-1. User runs `djangoguard profile ...`
+1. User runs `django_security_hunter profile ...`
 2. CLI and config flow are identical to `scan`
 3. Engine executes profiling pipeline (runtime collectors)
 4. Writers serialize findings
@@ -106,7 +106,7 @@ Advantages:
 
 ## Exit Code Semantics
 
-`djangoguard` uses severity threshold gating:
+`django_security_hunter` uses severity threshold gating:
 
 - Exit `0`: no findings at/above threshold
 - Exit `2`: one or more findings at/above threshold
@@ -118,7 +118,7 @@ This supports strict CI policies while allowing lower-severity findings to remai
 GitHub Actions workflow:
 - install package
 - run tests
-- generate SARIF (`djangoguard scan --format sarif`)
+- generate SARIF (`django_security_hunter scan --format sarif`)
 - upload SARIF to GitHub Security
 
 This enables:
@@ -170,7 +170,7 @@ Each plugin provides:
 
 ### Discovery Options
 
-1. Python entry points (`djangoguard.rules`)
+1. Python entry points (`django_security_hunter.rules`)
 2. Explicit local path loading from config
 3. Built-in + external hybrid registry
 

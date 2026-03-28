@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from textwrap import dedent
 
-from djangoguard.rules.concurrency import run_concurrency_rules
+from django_security_hunter.rules.concurrency import run_concurrency_rules
 
 
 def _write(root: Path, rel: str, content: str) -> None:

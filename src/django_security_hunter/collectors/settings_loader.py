@@ -5,7 +5,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from djangoguard.settings_module import InvalidSettingsModule, normalize_django_settings_module
+from django_security_hunter.settings_module import (
+    InvalidSettingsModule,
+    normalize_django_settings_module,
+)
 
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:

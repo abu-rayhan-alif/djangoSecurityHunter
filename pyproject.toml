@@ -3,13 +3,13 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "djangoguard"
+name = "django-security-hunter"
 version = "0.1.0"
 description = "Django + DRF security, reliability and performance inspector"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "djangoguard contributors" }]
+authors = [{ name = "django-security-hunter contributors" }]
 dependencies = [
   "typer>=0.12.3",
   "django>=4.2",
@@ -21,7 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-djangoguard = "djangoguard.cli:app"
+django_security_hunter = "django_security_hunter.cli:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -29,7 +29,7 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.djangoguard]
+[tool.django_security_hunter]
 severity_threshold = "WARN"
 query_count_threshold = 50
 db_time_ms_threshold = 200

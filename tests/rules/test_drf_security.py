@@ -1,4 +1,4 @@
-from djangoguard.rules.drf_security import run_drf_security_rules
+from django_security_hunter.rules.drf_security import run_drf_security_rules
 
 
 def test_drf_security_rule_placeholder_returns_list() -> None:

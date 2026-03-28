@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from djangoguard.collectors.settings_loader import load_settings_context
+from django_security_hunter.collectors.settings_loader import load_settings_context
 
 
 def test_load_settings_invalid_explicit_module(tmp_path: Path) -> None:

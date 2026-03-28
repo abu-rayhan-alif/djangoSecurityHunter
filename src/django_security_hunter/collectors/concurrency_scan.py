@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from djangoguard.collectors.project_files import iter_project_py_files, read_py_source
+from django_security_hunter.collectors.project_files import iter_project_py_files, read_py_source
 
 _STOCK_LIKE_FIELDS = frozenset(
     {

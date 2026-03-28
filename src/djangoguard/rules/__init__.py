@@ -1,2 +1,0 @@
-"""Rule implementations for djangoguard."""
-

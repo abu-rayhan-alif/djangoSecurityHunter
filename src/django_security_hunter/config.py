@@ -49,12 +49,12 @@ def _read_toml(path: Path) -> dict:
 
 def load_config(project_root: Path) -> GuardConfig:
     pyproject = _read_toml(project_root / "pyproject.toml")
-    local = _read_toml(project_root / "djangoguard.toml")
+    local = _read_toml(project_root / "django_security_hunter.toml")
 
     config_data: dict = {}
     tool = pyproject.get("tool")
     if isinstance(tool, dict):
-        dg = tool.get("djangoguard")
+        dg = tool.get("django_security_hunter")
         if isinstance(dg, dict):
             config_data.update(dg)
     if isinstance(local, dict):
