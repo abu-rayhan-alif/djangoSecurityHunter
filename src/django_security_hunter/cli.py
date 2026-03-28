@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 import sys
 import threading
 
 import typer
 
-from .config import load_config
+from .config import GuardConfig, load_config
 from .engine import run_profile, run_scan
 from .models import VALID_SEVERITY_THRESHOLDS
 from .output import as_console, as_json, as_sarif
+from .settings_module import InvalidSettingsModule, normalize_django_settings_module
 
 app = typer.Typer(
     help="Django + DRF Security, Reliability and Performance Inspector",
@@ -33,7 +35,9 @@ def _console_use_color(*, writing_to_file: bool) -> bool:
 def _render_report(
     report, output_format: str, *, writing_to_file: bool = False
 ) -> str:
-    fmt = output_format.lower()
+    fmt = output_format.strip().lower()
+    if not fmt:
+        raise typer.BadParameter("format must be one of: console, json, sarif")
     if fmt == "console":
         return as_console(
             report,
@@ -49,15 +53,19 @@ def _render_report(
 def _emit(content: str, output: Path | None) -> None:
     if output:
         try:
-            resolved = output.resolve()
+            out = output.expanduser()
+            resolved = out.resolve()
         except OSError as exc:
             raise typer.BadParameter(f"invalid --output path: {exc}") from exc
         if resolved.exists() and resolved.is_dir():
             raise typer.BadParameter(
                 f"--output must be a file path, not a directory: {resolved}"
             )
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_text(content, encoding="utf-8")
+        try:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            resolved.write_text(content, encoding="utf-8")
+        except OSError as exc:
+            raise typer.BadParameter(f"Could not write report file: {exc}") from exc
         typer.echo(f"Report written: {resolved}")
         return
     typer.echo(content)
@@ -80,12 +88,35 @@ def _warn_if_django_settings_not_loaded(report) -> None:
         parts.append(f"Reason: {sr}")
         if sr == "no_settings_module":
             parts.append(
-                "Hint: djangoguard scan --project . --settings yourpackage.settings "
+                "Hint: django_security_hunter scan --project . --settings yourpackage.settings "
                 "(or set DJANGO_SETTINGS_MODULE)."
             )
     if err := report.settings_load_error_detail:
         parts.append(err)
     typer.secho(" ".join(parts), fg=typer.colors.YELLOW, err=True)
+
+
+def _cli_settings_module(settings: str | None) -> str | None:
+    try:
+        return normalize_django_settings_module(settings)
+    except InvalidSettingsModule as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+def _merge_integration_overrides(
+    cfg: GuardConfig,
+    pip_audit: bool | None,
+    bandit: bool | None,
+    semgrep: bool | None,
+) -> GuardConfig:
+    if pip_audit is None and bandit is None and semgrep is None:
+        return cfg
+    return replace(
+        cfg,
+        enable_pip_audit=pip_audit if pip_audit is not None else cfg.enable_pip_audit,
+        enable_bandit=bandit if bandit is not None else cfg.enable_bandit,
+        enable_semgrep=semgrep if semgrep is not None else cfg.enable_semgrep,
+    )
 
 
 def _effective_threshold(cli_value: str | None, config_default: str) -> str:
@@ -123,7 +154,6 @@ def _run_with_scan_status(message: str, fn, *args, **kwargs):
                 sys.stderr.write(f"\r{message}… {ch} ")
             sys.stderr.flush()
             i += 1
-        # Clear full line (message can be long; +4 for spinner and ellipsis)
         pad = max(len(message) + 12, 72)
         sys.stderr.write("\r" + " " * pad + "\r")
         sys.stderr.flush()
@@ -143,17 +173,36 @@ def scan(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    output_format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
+    pip_audit: bool | None = typer.Option(
+        None,
+        "--pip-audit/--no-pip-audit",
+        help="Run pip-audit (default: enable_pip_audit in config)",
+    ),
+    bandit: bool | None = typer.Option(
+        None,
+        "--bandit/--no-bandit",
+        help="Run Bandit (default: enable_bandit in config)",
+    ),
+    semgrep: bool | None = typer.Option(
+        None,
+        "--semgrep/--no-semgrep",
+        help="Run Semgrep (default: enable_semgrep in config)",
+    ),
 ) -> None:
-    project_root = project.resolve()
+    project_root = project.expanduser().resolve()
+    settings_mod = _cli_settings_module(settings)
     cfg = load_config(project_root)
+    eff_cfg = _merge_integration_overrides(cfg, pip_audit, bandit, semgrep)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     want_status = (
-        output_format.lower() == "console"
+        output_format.strip().lower() == "console"
         and output is None
         and sys.stderr.isatty()
     )
@@ -162,10 +211,15 @@ def scan(
             _SCAN_STATUS_EN,
             run_scan,
             project_root,
-            settings_module=settings,
+            settings_module=settings_mod,
+            cfg=eff_cfg,
         )
     else:
-        report = run_scan(project_root=project_root, settings_module=settings)
+        report = run_scan(
+            project_root=project_root,
+            settings_module=settings_mod,
+            cfg=eff_cfg,
+        )
     _warn_if_django_settings_not_loaded(report)
     rendered = _render_report(
         report, output_format, writing_to_file=output is not None
@@ -180,16 +234,19 @@ def profile(
     settings: str | None = typer.Option(
         None, "--settings", help="Django settings module"
     ),
-    output_format: str = typer.Option("console", "--format", help="console|json|sarif"),
+    output_format: str = typer.Option(
+        "console", "--format", help="console|json|sarif"
+    ),
     output: Path | None = typer.Option(None, "--output", help="Write report to file"),
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
 ) -> None:
-    project_root = project.resolve()
+    project_root = project.expanduser().resolve()
+    settings_mod = _cli_settings_module(settings)
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
-    report = run_profile(project_root=project_root, settings_module=settings)
+    report = run_profile(project_root=project_root, settings_module=settings_mod)
     rendered = _render_report(
         report, output_format, writing_to_file=output is not None
     )
@@ -201,18 +258,27 @@ def profile(
 def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
-    project_root = project.resolve()
-    target = project_root / "djangoguard.toml"
+    project_root = project.expanduser().resolve()
+    target = project_root / "django_security_hunter.toml"
     if target.exists():
-        typer.echo("djangoguard.toml already exists.")
+        typer.echo("django_security_hunter.toml already exists.")
         raise typer.Exit(code=0)
 
     sample = (
         'severity_threshold = "WARN"\n'
         "query_count_threshold = 50\n"
         "db_time_ms_threshold = 200\n"
+        "# Optional external scanners (also overridable via CLI flags):\n"
+        "enable_pip_audit = false\n"
+        "enable_bandit = false\n"
+        "enable_semgrep = false\n"
     )
-    target.write_text(sample, encoding="utf-8")
+    try:
+        target.write_text(sample, encoding="utf-8")
+    except OSError as exc:
+        raise typer.BadParameter(
+            f"Could not create django_security_hunter.toml: {exc}"
+        ) from exc
     typer.echo(f"Created {target}")
 
 

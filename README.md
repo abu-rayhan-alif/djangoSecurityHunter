@@ -1,77 +1,108 @@
-# djangoguard
+# django_security_hunter
 
 Django + DRF Security, Reliability, and Performance Inspector.
 
-`djangoguard` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
+`django_security_hunter` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
 
-## Why djangoguard
+## Why django_security_hunter
 
 AI-assisted coding improves speed, but it can also introduce hidden backend risks.  
-`djangoguard` gives fast, actionable feedback during development and in CI before code reaches production.
+`django_security_hunter` gives fast, actionable feedback during development and in CI before code reaches production.
 
 ## Features
 
 - Static and configuration scanning for Django + DRF projects
-- Runtime profiling mode scaffold for query explosion / N+1 detection
-- Output formats: `console`, `json`, `sarif`
+- Runtime **profile** mode: pytest-driven DB query capture (DJG040–DJG042)
+- **Output formats:** `console`, `json`, `sarif` (SARIF **v2.1.0** for GitHub Code Scanning)
+- **Stable JSON report schema** (`schema_version`: `django_security_hunter.report.v1`)
 - CI-friendly exit codes by severity threshold
-- GitHub Security integration through SARIF
+- GitHub Actions: scan + SARIF upload (see below)
 
 ## Documentation
 
-- [Rule Catalog](docs/rules.md)
-- [Architecture Overview](docs/architecture.md)
+- [Rule catalog](docs/rules.md)
+- [Architecture](docs/architecture.md)
 
 ## Installation
 
-From source (recommended for now):
+From PyPI (after publish):
+
+```bash
+pip install django-security-hunter
+```
+
+The Python package and CLI command are **`django_security_hunter`** (underscores).
+
+From source:
 
 ```bash
 git clone <your-repo-url>
-cd djangoguard
+cd django-security-hunter
 python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
-pip install -e .[dev]
+# Linux/macOS
+# source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-## Quick Start
+The `django_security_hunter` CLI is installed via `[project.scripts]` in `pyproject.toml`.
+
+## Quick start
 
 ```bash
-djangoguard scan --project . --format console
-djangoguard scan --project . --format json --output reports/djangoguard.json
-djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+# Human-readable (default)
+django_security_hunter scan --project . --format console
+
+# Machine-readable JSON (stable schema: see schema_version in output)
+django_security_hunter scan --project . --format json --output reports/django_security_hunter.json
+
+# SARIF for GitHub Code Scanning / PR annotations
+django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
+
+# Django settings module (needed for DJG001–DJG012 when settings can be loaded)
+django_security_hunter scan --project . --settings mysite.settings --format json
 ```
+
+### Profile mode (runtime DB query analysis)
+
+```bash
+django_security_hunter profile --project . --format json --output reports/profile.json
+```
+
+Uses **pytest** (and **pytest-django** if installed) against `tests/` (or project root). Set `DJANGO_SETTINGS_MODULE` or pass `--settings` for Django ORM tests.
 
 ## Commands
 
-### `djangoguard scan`
+| Command | Purpose |
+|--------|---------|
+| `django_security_hunter scan` | Static/config + rules that need project files or Django settings |
+| `django_security_hunter profile` | Pytest run with per-test SQL capture (query count, N+1 heuristic, DB time) |
+| `django_security_hunter init` | Create a starter `django_security_hunter.toml` in `--project` |
 
-Runs static/config analysis and emits a report.
+## CLI options
 
-### `djangoguard profile`
+| Option | Description |
+|--------|-------------|
+| `--project` | Project root path (default: current directory) |
+| `--settings` | Django settings module (e.g. `mysite.settings`); validated dotted name |
+| `--format` | `console` \| `json` \| `sarif` |
+| `--output` | Write report to this file (UTF-8) |
+| `--threshold` | Exit code `2` if any finding ≥ this severity: `INFO` \| `WARN` \| `HIGH` \| `CRITICAL` |
+| `--pip-audit` / `--no-pip-audit` | Run `pip-audit` (overrides `enable_pip_audit` in config) |
+| `--bandit` / `--no-bandit` | Run Bandit (overrides `enable_bandit` in config) |
+| `--semgrep` / `--no-semgrep` | Run Semgrep (overrides `enable_semgrep` in config) |
 
-Runs runtime-oriented profiling checks (currently scaffolded in v0.1).
-
-### `djangoguard init`
-
-Creates a default `djangoguard.toml` file in the target project.
-
-## CLI Options
-
-- `--project` Project root path
-- `--settings` Django settings module (example: `config.settings`)
-- `--format` `console | json | sarif`
-- `--output` Output file path
-- `--threshold` `INFO | WARN | HIGH | CRITICAL`
+Exit codes: `0` = no findings at/above threshold; `2` = threshold hit; other codes = CLI/config errors.
 
 ## Configuration
 
-Configuration is loaded in this order:
-1. `djangoguard.toml` (project override)
-2. `pyproject.toml` -> `[tool.djangoguard]`
+Configuration is read from `pyproject.toml` → **`[tool.django_security_hunter]`**, then merged with **`django_security_hunter.toml`** in the project root (later overrides earlier):
 
-Example:
+1. `[tool.django_security_hunter]` in `pyproject.toml`
+2. `django_security_hunter.toml` in the project root
+
+Example `django_security_hunter.toml`:
 
 ```toml
 severity_threshold = "WARN"
@@ -79,88 +110,116 @@ query_count_threshold = 50
 db_time_ms_threshold = 200
 ```
 
-## Rule Catalog (V1 Target)
+Use `django_security_hunter init` to generate this file.
 
-| Rule ID | Severity | Description |
-|---|---|---|
-| DJG001 | CRITICAL | `DEBUG=True` in production |
-| DJG002 | HIGH | Suspicious/hardcoded `SECRET_KEY` |
-| DJG020 | HIGH | DRF default permissions missing or `AllowAny` |
-| DJG040 | WARN/HIGH | Query count per test above threshold |
-| DJG041 | HIGH | Repeated query signature indicates N+1 |
-| DJG070 | HIGH | Risky XSS usage patterns detected |
+## JSON report schema (stable)
 
-> Full rules and implementation progress can be maintained in `docs/rules.md`.
+Every JSON report includes:
 
-## Output Formats
+- `schema_version` — `django_security_hunter.report.v1` (bump only on incompatible changes)
+- `tool` — `{ "name": "django_security_hunter", "version": "<package version>" }`
+- `mode` — `scan` \| `profile`
+- `generated_at` — ISO 8601 UTC timestamp
+- `metadata` — run metadata (project root, runner, Django load status, profile stats, …)
+- `findings` — sorted list of `{ rule_id, severity, title, message, path?, line?, column?, fix_hint?, tags, references }`
 
-### Console
+Parse `schema_version` before relying on field shapes.
 
-Human-readable output for local development.
+## SARIF (v2.1.0)
 
-### JSON
+- Emits `$schema` for SARIF 2.1.0, `version: "2.1.0"`, `runs[].columnKind: utf16CodeUnits` (GitHub-friendly).
+- `tool.driver` includes `name`, `version`, `informationUri`, and `rules` (rule metadata).
+- Each result includes `ruleId`, `ruleIndex`, `level`, `message`, and `locations` when `path` is present.
 
-Stable schema for automation and custom dashboards.
+Upload in GitHub Actions with `github/codeql-action/upload-sarif` (see workflow below). Code Scanning must be enabled for the repository.
 
-### SARIF
+## Rule list (summary)
 
-SARIF v2.1.0 output for GitHub PR annotations and Security tab integration.
+| Range | Topic |
+|------|--------|
+| DJG001–DJG012 | Django settings security (DEBUG, SECRET_KEY, HTTPS, cookies, CORS, …) |
+| DJG020+ | DRF defaults, auth, throttling, serializers (see `docs/rules.md`) |
+| DJG040–DJG042 | Profile: query count, N+1-style repeats, DB time per test |
+| DJG050–DJG052 | Concurrency / `transaction.atomic` heuristics (static) |
+| DJG070+ | Static security patterns (XSS, SSRF, deserialization, secrets in logs) |
 
-## Exit Codes
+Full table: **[docs/rules.md](docs/rules.md)**.
 
-- `0`: No findings at or above threshold
-- `2`: One or more findings at or above threshold
+## GitHub Actions (scan + SARIF upload)
 
-## GitHub Actions Integration
+Minimal snippet (adjust branches and Python version as needed):
 
-Workflow file: `.github/workflows/ci.yml`
+```yaml
+name: django-security-hunter
 
-On every push and pull request:
-- installs dependencies
-- runs tests
-- generates SARIF report
-- uploads SARIF to GitHub Security
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run django_security_hunter SARIF
+        run: |
+          mkdir -p reports
+          django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: reports/django_security_hunter.sarif
+        # If Code Scanning is not enabled, allow the job to pass:
+        # continue-on-error: true
+```
+
+The repository includes a fuller workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (tests, lint, SARIF).
 
 ## Docker
 
-Build and run:
-
 ```bash
-docker build -t djangoguard:local .
-docker run --rm djangoguard:local djangoguard scan --project /app --format console
+docker build -t django_security_hunter:local .
+docker run --rm django_security_hunter:local django_security_hunter scan --project /app --format console
 ```
 
 Using Docker Compose:
 
 ```bash
-docker compose run --rm djangoguard djangoguard scan --project /app --format console
+docker compose run --rm django_security_hunter django_security_hunter scan --project /app --format console
 ```
 
 ## Limitations
 
-- Some future rules are heuristic and may produce false positives
-- Runtime profiling depends on project test coverage quality
-- Rule precision improves with project-specific tuning and allowlists
-
-## Roadmap
-
-- Django settings hardening rules (`DJG001-DJG012`)
-- DRF auth/permission/throttle checks (`DJG020+`)
-- Static code pattern rules (XSS/SSRF/deserialization/secrets)
-- Concurrency and atomicity heuristics (`DJG050+`)
-- Runtime N+1 and DB-time evidence improvements (`DJG040+`)
-- Optional dependency vulnerability integrations
+- Rules that load Django settings need a valid `--settings` or `DJANGO_SETTINGS_MODULE`.
+- Heuristic rules (concurrency, static patterns) can false-positive; tune thresholds and review findings.
+- Profile mode depends on pytest and meaningful Django/ORM test coverage.
+- SARIF upload requires GitHub **Code Scanning** (Advanced Security) where applicable.
 
 ## Contributing
 
-Contributions are welcome.
-
-Please follow these guidelines:
-1. Open an issue for major changes
-2. Add tests for every new rule
-3. Keep rule IDs stable and documented
-4. Include remediation hints with findings
+1. Open an issue for large changes  
+2. Add tests for new rules  
+3. Keep rule IDs stable and document them in `docs/rules.md`  
+4. Include remediation hints (`fix_hint`) on findings  
 
 ## License
 
 MIT
+
+

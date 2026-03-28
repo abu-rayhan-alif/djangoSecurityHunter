@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from djangoguard.collectors.model_schema_scan import (
+from django_security_hunter.collectors.model_schema_scan import (
     scan_djg080_natural_key_hits,
     scan_djg081_cascade_hits,
 )
-from djangoguard.models import Finding
+from django_security_hunter.models import Finding
 
 
 def run_static_pattern_rules(project_root: Path) -> Iterable[Finding]:

@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 permissions:
   contents: read
@@ -46,10 +47,10 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      - name: Run djangoguard scan
+      - name: Run django_security_hunter scan
         run: |
           mkdir -p reports
-          djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+          django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
 
       - name: Upload SARIF
         if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
@@ -58,4 +59,5 @@ jobs:
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: reports/djangoguard.sarif
+          sarif_file: reports/django_security_hunter.sarif
+

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from djangoguard.rules.static_patterns import run_static_pattern_rules
+from django_security_hunter.rules.static_patterns import run_static_pattern_rules
 
 
 def test_static_patterns_empty_without_models(tmp_path: Path) -> None:

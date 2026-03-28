@@ -6,7 +6,10 @@ import ast
 import re
 from pathlib import Path
 
-from djangoguard.collectors.project_files import iter_project_py_files, read_py_source
+from django_security_hunter.collectors.project_files import (
+    iter_project_py_files,
+    read_py_source,
+)
 
 # --- DJG080: natural key / identifier fields without uniqueness ---
 
