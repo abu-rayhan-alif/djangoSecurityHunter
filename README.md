@@ -13,6 +13,7 @@ AI-assisted coding improves speed, but it can also introduce hidden backend risk
 
 - Static and configuration scanning for Django + DRF projects
 - Runtime **profile** mode: pytest-driven DB query capture (DJG040–DJG042)
+- **Static code heuristics:** XSS / SSRF / deserialization / secrets & logging (DJG070–DJG074), model integrity (DJG080–DJG081)
 - **Output formats:** `console`, `json`, `sarif` (SARIF **v2.1.0** for GitHub Code Scanning)
 - **Stable JSON report schema** (`schema_version`: `django_security_hunter.report.v1`)
 - CI-friendly exit codes by severity threshold
@@ -138,10 +139,12 @@ Upload in GitHub Actions with `github/codeql-action/upload-sarif` (see workflow 
 | Range | Topic |
 |------|--------|
 | DJG001–DJG012 | Django settings security (DEBUG, SECRET_KEY, HTTPS, cookies, CORS, …) |
+| DJG026 | HTTP upload / request size limits (settings-based) |
 | DJG020+ | DRF defaults, auth, throttling, serializers (see `docs/rules.md`) |
 | DJG040–DJG042 | Profile: query count, N+1-style repeats, DB time per test |
 | DJG050–DJG052 | Concurrency / `transaction.atomic` heuristics (static) |
-| DJG070+ | Static security patterns (XSS, SSRF, deserialization, secrets in logs) |
+| DJG070–DJG074 | Static patterns: XSS, SSRF, deserialization, logging, hardcoded secrets |
+| DJG080–DJG081 | Model natural keys / CASCADE heuristics |
 
 Full table: **[docs/rules.md](docs/rules.md)**.
 
@@ -221,5 +224,3 @@ docker compose run --rm django_security_hunter django_security_hunter scan --pro
 ## License
 
 MIT
-
-

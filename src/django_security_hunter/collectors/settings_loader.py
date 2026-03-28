@@ -40,6 +40,85 @@ def _hsts_seconds(settings: Any) -> int:
         return 0
 
 
+def _drf_installed(settings: Any) -> bool:
+    for app in getattr(settings, "INSTALLED_APPS", ()):
+        a = str(app).lower()
+        if a == "rest_framework" or a.endswith(".rest_framework"):
+            return True
+    return False
+
+
+def _permission_class_to_str(entry: Any) -> str:
+    if isinstance(entry, str):
+        return entry
+    mod = getattr(entry, "__module__", "") or ""
+    qual = getattr(entry, "__qualname__", type(entry).__name__)
+    return f"{mod}.{qual}" if mod else str(entry)
+
+
+def _drf_rest_framework_sequence_key(settings: Any, key: str) -> list[str] | None:
+    """None = REST_FRAMEWORK or key missing; [] = explicitly empty; else configured."""
+    rf = getattr(settings, "REST_FRAMEWORK", None)
+    if rf is None:
+        return None
+    if not isinstance(rf, dict):
+        return None
+    if key not in rf:
+        return None
+    raw = rf[key]
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return [_permission_class_to_str(x) for x in raw]
+    return [_permission_class_to_str(raw)]
+
+
+def _drf_default_permission_classes(settings: Any) -> list[str] | None:
+    return _drf_rest_framework_sequence_key(settings, "DEFAULT_PERMISSION_CLASSES")
+
+
+def _drf_default_authentication_classes(settings: Any) -> list[str] | None:
+    return _drf_rest_framework_sequence_key(settings, "DEFAULT_AUTHENTICATION_CLASSES")
+
+
+def _drf_default_throttle_classes(settings: Any) -> list[str] | None:
+    return _drf_rest_framework_sequence_key(settings, "DEFAULT_THROTTLE_CLASSES")
+
+
+def _drf_default_pagination_class(settings: Any) -> str | None:
+    """None = REST_FRAMEWORK or key missing; '' = explicitly disabled/empty."""
+    rf = getattr(settings, "REST_FRAMEWORK", None)
+    if rf is None or not isinstance(rf, dict):
+        return None
+    if "DEFAULT_PAGINATION_CLASS" not in rf:
+        return None
+    raw = rf["DEFAULT_PAGINATION_CLASS"]
+    if raw is None:
+        return ""
+    if raw == "":
+        return ""
+    return _permission_class_to_str(raw)
+
+
+def _drf_page_size(settings: Any) -> int | None:
+    rf = getattr(settings, "REST_FRAMEWORK", None)
+    if rf is None or not isinstance(rf, dict) or "PAGE_SIZE" not in rf:
+        return None
+    raw = rf["PAGE_SIZE"]
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int_setting(settings: Any, name: str, default: int) -> int:
+    raw = getattr(settings, name, default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def _allowed_hosts_list(settings: Any) -> list[str]:
     raw = getattr(settings, "ALLOWED_HOSTS", None)
     if raw is None:
@@ -90,7 +169,20 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
             import django
             from django.conf import settings
 
-            if not settings.configured:
+            if settings.configured:
+                env_raw = os.environ.get("DJANGO_SETTINGS_MODULE")
+                env_module = env_raw.strip() if isinstance(env_raw, str) else None
+                if env_module != module:
+                    base["skip_reason"] = "django_already_configured"
+                    base["load_error"] = (
+                        "Django settings are already loaded in this process "
+                        f"(DJANGO_SETTINGS_MODULE={env_raw!r}); "
+                        f"refusing to use a different module ({module!r}). "
+                        "Run django_security_hunter in a fresh process per project, or match "
+                        "the already-loaded settings module."
+                    )
+                    return base
+            else:
                 os.environ["DJANGO_SETTINGS_MODULE"] = module
                 django.setup()
 
@@ -131,6 +223,35 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
                     ),
                     "cors_allowed_origin_regexes": _str_list_setting(
                         settings, "CORS_ALLOWED_ORIGIN_REGEXES"
+                    ),
+                    "drf_installed": _drf_installed(settings),
+                    "drf_default_permission_classes": _drf_default_permission_classes(
+                        settings
+                    ),
+                    "drf_default_authentication_classes": (
+                        _drf_default_authentication_classes(settings)
+                    ),
+                    "drf_default_throttle_classes": _drf_default_throttle_classes(
+                        settings
+                    ),
+                    "drf_default_pagination_class": _drf_default_pagination_class(
+                        settings
+                    ),
+                    "drf_page_size": _drf_page_size(settings),
+                    "data_upload_max_memory_size": _safe_int_setting(
+                        settings,
+                        "DATA_UPLOAD_MAX_MEMORY_SIZE",
+                        2_621_440,
+                    ),
+                    "file_upload_max_memory_size": _safe_int_setting(
+                        settings,
+                        "FILE_UPLOAD_MAX_MEMORY_SIZE",
+                        2_621_440,
+                    ),
+                    "data_upload_max_number_fields": _safe_int_setting(
+                        settings,
+                        "DATA_UPLOAD_MAX_NUMBER_FIELDS",
+                        1_000,
                     ),
                 }
             )
