@@ -21,7 +21,7 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 |------|-----------|--------|
 | Django settings | DJG001–DJG012 | Requires `--settings` / `DJANGO_SETTINGS_MODULE` so Django loads. |
 | DRF config | DJG020–DJG027 | `REST_FRAMEWORK` + upload limits; **DJG023** inspects `urls.py` for auth-like paths vs throttling; **DJG027** is a per-view `AllowAny` heuristic (not full object-level authz). |
-| Static AST scan | DJG024, DJG070–DJG074 | Scans project `*.py` (excludes `migrations/`, venvs, etc.). |
+| Static AST scan | DJG024, DJG070–DJG075 | Scans project `*.py` (excludes `migrations/`, venvs, etc.). **DJG075** flags non-literal SQL passed to `execute` / `executemany`, `RawSQL`, or `*.objects.raw` (heuristic, not taint analysis). |
 | Model / schema hints | DJG080–DJG081 | `models.py` / `*/models/*.py` heuristics. |
 | Concurrency heuristics | DJG050–DJG052 | Includes `+=` on loop-bound ORM rows without `F()`. |
 | Query / performance | DJG040–DJG042, DJG045 | **DJG040–042**: `profile` + `pytest -p django_security_hunter.profile_pytest`. **DJG045**: static loop/queryset hint (N+1-style). |
@@ -104,6 +104,13 @@ Finding `fix_hint` fields are meant to be copy-paste starting points; adjust cla
 | DJG072 | HIGH | planned | Insecure deserialization (`pickle`, unsafe `yaml.load`) | Use safe parsers/loaders |
 | DJG073 | HIGH | planned | Sensitive data logging (password/token/authorization) | Redact secrets in logs |
 | DJG074 | WARN/HIGH | planned | Hardcoded secret-like literals | Move to env vars/secrets manager |
+| DJG075 | HIGH/WARN | implemented | Heuristic SQL injection patterns: dynamic SQL string as first argument to `cursor.execute` / `executemany`, `RawSQL(...)`, or `Model.objects.raw(...)` (f-strings, `%`/`.format`, concat, or non-literal expr) | Use ORM or parameterized queries; keep SQL text static and pass values via the DB-API parameter sequence |
+
+### DJG075 limitations
+
+- Does **not** perform taint tracking from HTTP parameters to SQL.
+- May **WARN** on `execute(sql, params)` when `sql` is a variable even if every call site is safe.
+- Only inspects the **first positional** SQL argument; ORM `.extra(where=...)` and similar are out of scope for this rule.
 
 ---
 

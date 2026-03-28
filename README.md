@@ -82,6 +82,7 @@ High-level checklist of what the scanner looks for (details and rule IDs: **[doc
 - SSRF-style outbound HTTP when the URL is not a fixed string (heuristic)
 - Risky deserialization and `eval` / `exec`
 - Secrets in logging calls and hardcoded secret-like names
+- **SQL injection hints (heuristic):** non-literal SQL passed to `execute` / `executemany`, `RawSQL(...)`, or `Model.objects.raw(...)` (**DJG075**)
 
 **Models, concurrency, performance**
 
@@ -164,6 +165,7 @@ Below is what each area is meant to catch. Most rules are **heuristic**—useful
 | **Unsafe deserialization & code execution** | `pickle` / `marshal`, unsafe YAML loaders, `eval` / `exec` (**DJG072**) |
 | **Secrets in logs** | Logging calls that likely include passwords, tokens, or `Authorization` (**DJG073**) |
 | **Hardcoded secrets** | Assignments to names like `SECRET_*`, `API_KEY`, `PASSWORD`, etc. (**DJG074**) |
+| **SQL injection (heuristic)** | f-strings, `%` / `.format` on SQL text, or variable SQL as the first argument to `.execute()` / `.executemany()`, `RawSQL()`, or `*.objects.raw()` (**DJG075**) |
 
 ### Models, concurrency, and performance
 
@@ -183,7 +185,7 @@ Below is what each area is meant to catch. Most rules are **heuristic**—useful
 
 ### What is *not* a built-in guarantee
 
-- **SQL injection:** there is **no dedicated first-party SQLi rule**. Prefer the Django ORM, parameterized queries, and—if you need static coverage—enable **Semgrep** or **Bandit** with rulesets that match your stack.
+- **SQL injection:** **DJG075** is **heuristic** (syntax-level only): it does **not** trace data from request to database. Safe uses like `cursor.execute(sql, params)` where `sql` is built in a trusted module may still **WARN**. For deeper coverage, use the ORM, parameterized queries, and optional **Semgrep** / **Bandit** rulesets.
 - **Authorization:** **DJG027** flags permissive DRF permissions; it does **not** prove or disprove object-level access control.
 - **False positives / negatives:** documented per rule in [docs/rules.md](docs/rules.md); tune `--threshold` and optional scanners for your risk appetite.
 
@@ -191,7 +193,7 @@ Below is what each area is meant to catch. Most rules are **heuristic**—useful
 
 | | Area | What you get |
 |---|------|----------------|
-| 🔍 | **Scan** | Django settings (DJG001–DJG012), DRF defaults & URLs (DJG020–DJG027), static AST rules (DJG024, DJG050–052, DJG070–074, DJG080–081) |
+| 🔍 | **Scan** | Django settings (DJG001–DJG012), DRF defaults & URLs (DJG020–DJG027), static AST rules (DJG024, DJG050–052, DJG070–075, DJG080–081) |
 | ⚡ | **Profile** | Pytest-driven query counts, duplicate SQL hints, DB time (DJG040–DJG042); static N+1-style hints (DJG045) |
 | 📄 | **Reports** | `console` (Rich when TTY), stable **JSON** (`schema_version`), **SARIF 2.1.0** for Code Scanning |
 | 🔌 | **Integrations** | Optional **pip-audit** (DJG060), **Bandit** (DJG061), **Semgrep** (DJG062) via config or env |
@@ -341,6 +343,7 @@ db_time_ms_threshold = 200
 | DJG020 | HIGH | DRF default permissions / `AllowAny` |
 | DJG040–DJG042 | WARN/HIGH | Profile: queries, duplicates, DB time |
 | DJG070 | HIGH | XSS-related patterns (e.g. `mark_safe`) |
+| DJG075 | HIGH/WARN | Heuristic SQL injection patterns (`execute`/`raw`/`RawSQL` with dynamic SQL) |
 
 Full list: **[docs/rules.md](docs/rules.md)**.
 
