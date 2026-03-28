@@ -15,6 +15,26 @@ SEVERITY_ORDER = {
 VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
 
 
+def _normalize_severity_key(severity: object) -> str:
+    if severity is None:
+        return ""
+    return str(severity).strip().upper()
+
+
+def _coerce_optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 0 else None
+
+
 @dataclass(slots=True)
 class Finding:
     rule_id: str
@@ -27,6 +47,10 @@ class Finding:
     fix_hint: str | None = None
     tags: list[str] = field(default_factory=list)
     references: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "line", _coerce_optional_int(self.line))
+        object.__setattr__(self, "column", _coerce_optional_int(self.column))
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -58,13 +82,14 @@ class Report:
             t = "WARN"
         threshold_value = SEVERITY_ORDER[t]
         return any(
-            SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
+            SEVERITY_ORDER.get(_normalize_severity_key(finding.severity), 0)
+            >= threshold_value
             for finding in self.findings
         )
 
     def sorted_findings(self) -> list[Finding]:
         def sort_key(f: Finding) -> tuple[int, str, str, int]:
-            severity_value = SEVERITY_ORDER.get(f.severity.upper(), 0)
+            severity_value = SEVERITY_ORDER.get(_normalize_severity_key(f.severity), 0)
             # Higher severity first -> negate for descending
             return (
                 -severity_value,

@@ -15,7 +15,9 @@ def test_scan_returns_empty_report_by_default() -> None:
     assert "django_settings_load_error" not in dumped
 
 
-def test_profile_returns_empty_report_by_default() -> None:
-    report = run_profile(Path(".").resolve())
+def test_profile_returns_empty_report_by_default(tmp_path) -> None:
+    """Empty project: pytest collects nothing; no DB findings."""
+    report = run_profile(tmp_path.resolve())
     assert report.mode == "profile"
     assert report.findings == []
+    assert report.metadata.get("profile_tests_observed") == 0
