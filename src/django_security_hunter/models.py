@@ -12,6 +12,8 @@ SEVERITY_ORDER = {
     "CRITICAL": 40,
 }
 
+VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
+
 
 @dataclass(slots=True)
 class Finding:
@@ -38,18 +40,37 @@ class Report:
     )
     findings: list[Finding] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Shown on stderr only; omitted from to_dict() / JSON / SARIF (avoids leaking paths).
+    settings_load_error_detail: str | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
+        sorted_findings = self.sorted_findings()
         return {
             "mode": self.mode,
             "generated_at": self.generated_at,
             "metadata": self.metadata,
-            "findings": [finding.to_dict() for finding in self.findings],
+            "findings": [finding.to_dict() for finding in sorted_findings],
         }
 
     def has_threshold_hit(self, threshold: str) -> bool:
-        threshold_value = SEVERITY_ORDER.get(threshold.upper(), SEVERITY_ORDER["WARN"])
+        t = threshold.strip().upper()
+        if t not in SEVERITY_ORDER:
+            t = "WARN"
+        threshold_value = SEVERITY_ORDER[t]
         return any(
             SEVERITY_ORDER.get(finding.severity.upper(), 0) >= threshold_value
             for finding in self.findings
         )
+
+    def sorted_findings(self) -> list[Finding]:
+        def sort_key(f: Finding) -> tuple[int, str, str, int]:
+            severity_value = SEVERITY_ORDER.get(f.severity.upper(), 0)
+            # Higher severity first -> negate for descending
+            return (
+                -severity_value,
+                f.rule_id,
+                f.path or "",
+                f.line or 0,
+            )
+
+        return sorted(self.findings, key=sort_key)

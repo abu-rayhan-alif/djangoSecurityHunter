@@ -1,13 +1,13 @@
-# djangoguard
+# django_security_hunter
 
 Django + DRF Security, Reliability, and Performance Inspector.
 
-`djangoguard` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
+`django_security_hunter` helps backend teams catch risky patterns early: security misconfigurations, authorization gaps, abuse-protection weaknesses, API correctness issues, and performance/reliability smells.
 
-## Why djangoguard
+## Why django_security_hunter
 
 AI-assisted coding improves speed, but it can also introduce hidden backend risks.  
-`djangoguard` gives fast, actionable feedback during development and in CI before code reaches production.
+`django_security_hunter` gives fast, actionable feedback during development and in CI before code reaches production.
 
 ## Features
 
@@ -24,11 +24,19 @@ AI-assisted coding improves speed, but it can also introduce hidden backend risk
 
 ## Installation
 
-From source (recommended for now):
+From PyPI (after publish):
+
+```bash
+pip install django-security-hunter
+```
+
+The Python package and CLI command are **`django_security_hunter`** (underscores).
+
+From source:
 
 ```bash
 git clone <your-repo-url>
-cd djangoguard
+cd django_security_hunter
 python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
@@ -38,24 +46,24 @@ pip install -e .[dev]
 ## Quick Start
 
 ```bash
-djangoguard scan --project . --format console
-djangoguard scan --project . --format json --output reports/djangoguard.json
-djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+django_security_hunter scan --project . --format console
+django_security_hunter scan --project . --format json --output reports/django_security_hunter.json
+django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
 ```
 
 ## Commands
 
-### `djangoguard scan`
+### `django_security_hunter scan`
 
 Runs static/config analysis and emits a report.
 
-### `djangoguard profile`
+### `django_security_hunter profile`
 
 Runs runtime-oriented profiling checks (currently scaffolded in v0.1).
 
-### `djangoguard init`
+### `django_security_hunter init`
 
-Creates a default `djangoguard.toml` file in the target project.
+Creates a default `django_security_hunter.toml` file in the target project.
 
 ## CLI Options
 
@@ -67,9 +75,7 @@ Creates a default `djangoguard.toml` file in the target project.
 
 ## Configuration
 
-Configuration is loaded in this order:
-1. `djangoguard.toml` (project override)
-2. `pyproject.toml` -> `[tool.djangoguard]`
+Configuration is loaded from `pyproject.toml` → **`[tool.django_security_hunter]`**, then merged with **`django_security_hunter.toml`** in the project root (later overrides earlier).
 
 Example:
 
@@ -126,14 +132,14 @@ On every push and pull request:
 Build and run:
 
 ```bash
-docker build -t djangoguard:local .
-docker run --rm djangoguard:local djangoguard scan --project /app --format console
+docker build -t django_security_hunter:local .
+docker run --rm django_security_hunter:local django_security_hunter scan --project /app --format console
 ```
 
 Using Docker Compose:
 
 ```bash
-docker compose run --rm djangoguard djangoguard scan --project /app --format console
+docker compose run --rm django_security_hunter django_security_hunter scan --project /app --format console
 ```
 
 ## Limitations
@@ -164,3 +170,5 @@ Please follow these guidelines:
 ## License
 
 MIT
+
+
