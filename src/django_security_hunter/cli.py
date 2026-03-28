@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 import sys
@@ -8,19 +8,41 @@ import typer
 from .config import load_config
 from .engine import run_profile, run_scan
 from .models import VALID_SEVERITY_THRESHOLDS
-from .output import as_console, as_json, as_sarif
+from .output import (
+    as_console,
+    as_json,
+    as_sarif,
+    console_color_preferred,
+    print_console_report,
+)
 
 app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
 
 
-def _render_report(report, output_format: str) -> str:
+def _emit_formatted_report(
+    report,
+    output_format: str,
+    output: Path | None,
+    *,
+    force_color: bool = False,
+    no_color: bool = False,
+) -> None:
     fmt = output_format.lower()
     if fmt == "console":
-        return as_console(report)
+        use_rich = output is None and console_color_preferred(
+            force=force_color, no_color_flag=no_color
+        )
+        if use_rich:
+            print_console_report(report)
+        else:
+            _emit(as_console(report, color=False), output)
+        return
     if fmt == "json":
-        return as_json(report)
+        _emit(as_json(report), output)
+        return
     if fmt == "sarif":
-        return as_sarif(report)
+        _emit(as_sarif(report), output)
+        return
     raise typer.BadParameter("format must be one of: console, json, sarif")
 
 
@@ -73,14 +95,25 @@ def scan(
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
+    force_color: bool = typer.Option(
+        False,
+        "--force-color",
+        help="Use styled console output even when stdout is not a TTY.",
+    ),
+    no_color: bool = typer.Option(
+        False,
+        "--no-color",
+        help="Plain text console output (no panels / colors).",
+    ),
 ) -> None:
     project_root = project.resolve()
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(project_root=project_root, settings_module=settings)
     _warn_if_django_settings_not_loaded(report)
-    rendered = _render_report(report, format)
-    _emit(rendered, output)
+    _emit_formatted_report(
+        report, format, output, force_color=force_color, no_color=no_color
+    )
     _exit_by_threshold(report, eff_threshold)
 
 
@@ -95,13 +128,24 @@ def profile(
     threshold: str | None = typer.Option(
         None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
     ),
+    force_color: bool = typer.Option(
+        False,
+        "--force-color",
+        help="Use styled console output even when stdout is not a TTY.",
+    ),
+    no_color: bool = typer.Option(
+        False,
+        "--no-color",
+        help="Plain text console output (no panels / colors).",
+    ),
 ) -> None:
     project_root = project.resolve()
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_profile(project_root=project_root, settings_module=settings)
-    rendered = _render_report(report, format)
-    _emit(rendered, output)
+    _emit_formatted_report(
+        report, format, output, force_color=force_color, no_color=no_color
+    )
     _exit_by_threshold(report, eff_threshold)
 
 

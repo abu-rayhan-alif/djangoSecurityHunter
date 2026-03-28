@@ -1,4 +1,4 @@
-﻿from typer.testing import CliRunner
+from typer.testing import CliRunner
 
 from django_security_hunter.cli import app
 
@@ -10,6 +10,23 @@ def test_scan_console_runs() -> None:
     assert result.exit_code == 0
     assert "django_security_hunter report (scan)" in result.stdout
     assert "Django settings were not loaded" in result.stderr
+
+
+def test_scan_console_force_color_uses_rich_layout() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--format",
+            "console",
+            "--force-color",
+            "--threshold",
+            "CRITICAL",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "django_security_hunter report (scan)" in result.stdout
+    assert "╭" in result.stdout or "─" in result.stdout
 
 
 def test_scan_json_runs() -> None:

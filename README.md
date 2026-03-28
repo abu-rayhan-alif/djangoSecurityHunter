@@ -24,7 +24,7 @@ AI-assisted coding improves speed, but it can also introduce hidden backend risk
 
 ## Installation
 
-From source (recommended for now):
+From PyPI:
 
 ```bash
 pip install django-security-hunter
@@ -32,10 +32,10 @@ pip install django-security-hunter
 
 Python package / CLI: **`django_security_hunter`**.
 
-From source (clone into a folder name that matches the project; example below):
+From source (clone into a folder name that matches the project):
 
 ```bash
-git clone <your-repo-url> django-security-hunter
+git clone https://github.com/abu-rayhan-alif/djangoGuard.git django-security-hunter
 cd django-security-hunter
 python -m venv .venv
 # Windows PowerShell
