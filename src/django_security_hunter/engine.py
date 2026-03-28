@@ -22,7 +22,7 @@ def run_scan(
     dj_findings, dj_ctx = run_django_settings_scan(project_root, settings_module)
     findings.extend(dj_findings)
     findings.extend(run_drf_security_rules())
-    findings.extend(run_static_pattern_rules())
+    findings.extend(run_static_pattern_rules(project_root))
     findings.extend(run_concurrency_rules(project_root))
 
     ext_findings, integrations_meta = run_external_integration_findings(

@@ -54,7 +54,7 @@ def _sarif_artifact_uri(path: str | None) -> str | None:
     return out or None
 
 
-def as_console(report: Report) -> str:
+def as_console(report: Report, *, color: bool = False) -> str:
     lines: list[str] = [
         f"django_security_hunter report ({report.mode})",
         f"tool: django_security_hunter {package_version()}",

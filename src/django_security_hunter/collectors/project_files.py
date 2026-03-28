@@ -45,7 +45,7 @@ def read_py_source(path: Path) -> str | None:
 
 
 def iter_project_py_files(project_root: Path) -> Iterable[Path]:
-    """Yield ``*.py`` under project_root (resolved; symlink-safe)."""
+    """Yield ``*.py`` under project_root (resolved; skips junk dirs; symlink-safe)."""
     root = project_root.resolve()
     for p in root.rglob("*.py"):
         try:

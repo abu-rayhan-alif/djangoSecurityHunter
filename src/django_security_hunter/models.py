@@ -32,10 +32,12 @@ SEVERITY_ORDER = {
 VALID_SEVERITY_THRESHOLDS = frozenset(SEVERITY_ORDER)
 
 
-def _normalize_severity_key(severity: object) -> str:
+def _severity_rank(severity: object) -> int:
+    """Numeric rank; unknown non-None strings treated as HIGH (fail-safe for CI gating)."""
     if severity is None:
-        return ""
-    return str(severity).strip().upper()
+        return 0
+    s = str(severity).strip().upper()
+    return SEVERITY_ORDER.get(s, SEVERITY_ORDER["HIGH"])
 
 
 @dataclass(slots=True)
@@ -87,14 +89,13 @@ class Report:
             t = "WARN"
         threshold_value = SEVERITY_ORDER[t]
         return any(
-            SEVERITY_ORDER.get(_normalize_severity_key(finding.severity), 0)
-            >= threshold_value
+            _severity_rank(finding.severity) >= threshold_value
             for finding in self.findings
         )
 
     def sorted_findings(self) -> list[Finding]:
         def sort_key(f: Finding) -> tuple[int, str, str, int]:
-            severity_value = SEVERITY_ORDER.get(_normalize_severity_key(f.severity), 0)
+            severity_value = _severity_rank(f.severity)
             # Higher severity first -> negate for descending
             return (
                 -severity_value,
