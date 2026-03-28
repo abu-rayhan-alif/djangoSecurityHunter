@@ -16,6 +16,7 @@ _SKIP_PATH_PARTS = frozenset({"migrations", "tests", "fixtures"})
 def _skip_secrets_scan_path(py_path: Path) -> bool:
     return any(p in _SKIP_PATH_PARTS for p in py_path.parts)
 
+
 _LOG_METHODS = frozenset(
     {"debug", "info", "warning", "warn", "error", "critical", "exception", "log"}
 )

@@ -63,7 +63,10 @@ def _main_callback(ctx: typer.Context) -> None:
 
 
 def _render_report(report, output_format: str) -> str:
-    """Render report; ``output_format`` is console|json|sarif (avoids shadowing ``format`` builtin)."""
+    """Render report (console|json|sarif).
+
+    Uses ``output_format`` so the name does not shadow ``format``.
+    """
     fmt = output_format.lower()
     if fmt == "console":
         return as_console(report)
