@@ -1,4 +1,4 @@
-﻿services:
+services:
   django_security_hunter:
     build:
       context: .

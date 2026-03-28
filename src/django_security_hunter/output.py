@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from .models import Report
 from .package_meta import INFORMATION_URI, package_version
+
+_SARIF_URI_MAX = 2048
 
 
 def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
@@ -16,6 +18,39 @@ def _sarif_positive_int(value: object | None, *, default: int = 1) -> int:
     except (TypeError, ValueError):
         return default
     return max(1, n)
+
+
+def _sarif_artifact_uri(path: str | None) -> str | None:
+    """Normalize paths for SARIF: no path traversal, no remote URL schemes in uri."""
+    if path is None:
+        return None
+    raw = path.strip().replace("\\", "/")
+    if not raw:
+        return None
+    if len(raw) > _SARIF_URI_MAX:
+        raw = raw[:_SARIF_URI_MAX]
+    low = raw.lower()
+    if "://" in low:
+        if low.startswith("file:"):
+            try:
+                u = urlsplit(raw)
+                raw = unquote(u.path or "")
+            except Exception:
+                raw = ""
+        else:
+            tail = raw.rstrip("/").rsplit("/", 1)[-1]
+            tail = tail.split("?", 1)[0].split("#", 1)[0]
+            raw = tail or "artifact"
+    parts = [p for p in raw.split("/") if p and p != "."]
+    safe: list[str] = []
+    for p in parts:
+        if p == "..":
+            if safe:
+                safe.pop()
+        else:
+            safe.append(p)
+    out = "/".join(safe)
+    return out or None
 
 
 def as_console(report: Report) -> str:
@@ -93,13 +128,9 @@ def as_sarif(report: Report) -> str:
             "level": _sarif_level(finding.severity),
             "message": {"text": finding.message},
         }
-        if finding.path:
-            p = Path(finding.path)
-            try:
-                uri = p.as_uri() if p.is_absolute() else finding.path.replace("\\", "/")
-            except ValueError:
-                uri = finding.path.replace("\\", "/")
-            location = {
+        uri = _sarif_artifact_uri(finding.path)
+        if uri:
+            location: dict[str, Any] = {
                 "physicalLocation": {
                     "artifactLocation": {"uri": uri},
                 }

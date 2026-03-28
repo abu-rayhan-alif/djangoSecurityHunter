@@ -1,4 +1,4 @@
-﻿from typer.testing import CliRunner
+from typer.testing import CliRunner
 
 from django_security_hunter.cli import app
 

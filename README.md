@@ -31,12 +31,12 @@ From PyPI (after publish):
 pip install django-security-hunter
 ```
 
-Python package / CLI: **`django_security_hunter`**.
+The Python package and CLI command are **`django_security_hunter`** (underscores).
 
-From the repository:
+From source:
 
 ```bash
-git clone https://github.com/abu-rayhan-alif/djangoGuard.git django-security-hunter
+git clone <your-repo-url>
 cd django-security-hunter
 python -m venv .venv
 # Windows PowerShell
@@ -89,12 +89,15 @@ Uses **pytest** (and **pytest-django** if installed) against `tests/` (or projec
 | `--format` | `console` \| `json` \| `sarif` |
 | `--output` | Write report to this file (UTF-8) |
 | `--threshold` | Exit code `2` if any finding ≥ this severity: `INFO` \| `WARN` \| `HIGH` \| `CRITICAL` |
+| `--pip-audit` / `--no-pip-audit` | Run `pip-audit` (overrides `enable_pip_audit` in config) |
+| `--bandit` / `--no-bandit` | Run Bandit (overrides `enable_bandit` in config) |
+| `--semgrep` / `--no-semgrep` | Run Semgrep (overrides `enable_semgrep` in config) |
 
 Exit codes: `0` = no findings at/above threshold; `2` = threshold hit; other codes = CLI/config errors.
 
 ## Configuration
 
-Loaded in order (later overrides earlier):
+Configuration is read from `pyproject.toml` → **`[tool.django_security_hunter]`**, then merged with **`django_security_hunter.toml`** in the project root (later overrides earlier):
 
 1. `[tool.django_security_hunter]` in `pyproject.toml`
 2. `django_security_hunter.toml` in the project root
@@ -218,3 +221,5 @@ docker compose run --rm django_security_hunter django_security_hunter scan --pro
 ## License
 
 MIT
+
+

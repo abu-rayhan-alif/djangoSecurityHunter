@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import tomllib
 
+from .limits import MAX_TOML_CONFIG_BYTES
 from .models import VALID_SEVERITY_THRESHOLDS
-
-_MAX_TOML_BYTES = 512 * 1024
 
 
 @dataclass(slots=True)
@@ -15,6 +14,9 @@ class GuardConfig:
     severity_threshold: str = "WARN"
     query_count_threshold: int = 50
     db_time_ms_threshold: int = 200
+    enable_pip_audit: bool = False
+    enable_bandit: bool = False
+    enable_semgrep: bool = False
 
 
 def _safe_int(
@@ -31,15 +33,27 @@ def _safe_int(
     return max(min_value, min(max_value, n))
 
 
+def _safe_bool(value: object, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in ("1", "true", "yes", "on"):
+            return True
+        if s in ("0", "false", "no", "off"):
+            return False
+    return default
+
+
 def _read_toml(path: Path) -> dict:
     if not path.exists():
         return {}
     try:
         with path.open("rb") as f:
-            data = f.read(_MAX_TOML_BYTES + 1)
+            data = f.read(MAX_TOML_CONFIG_BYTES + 1)
     except OSError:
         return {}
-    if len(data) > _MAX_TOML_BYTES:
+    if len(data) > MAX_TOML_CONFIG_BYTES:
         return {}
     try:
         return tomllib.load(io.BytesIO(data))
@@ -72,4 +86,13 @@ def load_config(project_root: Path) -> GuardConfig:
         db_time_ms_threshold=_safe_int(
             config_data.get("db_time_ms_threshold", 200), 200
         ),
+        enable_pip_audit=_safe_bool(
+            config_data.get("enable_pip_audit", False), False
+        ),
+        enable_bandit=_safe_bool(config_data.get("enable_bandit", False), False),
+        enable_semgrep=_safe_bool(
+            config_data.get("enable_semgrep", False), False
+        ),
     )
+
+
