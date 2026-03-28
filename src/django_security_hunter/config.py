@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,11 +30,11 @@ def _read_toml(path: Path) -> dict:
 
 def load_config(project_root: Path) -> GuardConfig:
     pyproject = _read_toml(project_root / "pyproject.toml")
-    local = _read_toml(project_root / "djangoguard.toml")
+    local = _read_toml(project_root / "django_security_hunter.toml")
 
     config_data: dict = {}
-    if "tool" in pyproject and "djangoguard" in pyproject["tool"]:
-        config_data.update(pyproject["tool"]["djangoguard"])
+    if "tool" in pyproject and "django_security_hunter" in pyproject["tool"]:
+        config_data.update(pyproject["tool"]["django_security_hunter"])
     config_data.update(local)
 
     sev = str(config_data.get("severity_threshold", "WARN")).strip().upper()
@@ -50,3 +50,4 @@ def load_config(project_root: Path) -> GuardConfig:
             config_data.get("db_time_ms_threshold", 200), 200
         ),
     )
+

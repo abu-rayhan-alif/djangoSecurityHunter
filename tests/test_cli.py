@@ -1,6 +1,6 @@
-from typer.testing import CliRunner
+﻿from typer.testing import CliRunner
 
-from djangoguard.cli import app
+from django_security_hunter.cli import app
 
 runner = CliRunner()
 
@@ -8,7 +8,7 @@ runner = CliRunner()
 def test_scan_console_runs() -> None:
     result = runner.invoke(app, ["scan", "--format", "console"])
     assert result.exit_code == 0
-    assert "djangoguard report (scan)" in result.stdout
+    assert "django_security_hunter report (scan)" in result.stdout
     assert "Django settings were not loaded" in result.stderr
 
 
@@ -31,3 +31,4 @@ def test_scan_rejects_invalid_threshold() -> None:
     assert result.exit_code != 0
     combined = result.stdout + (result.stderr or "")
     assert "threshold must be one of" in combined
+

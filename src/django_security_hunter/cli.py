@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 import sys
@@ -110,9 +110,9 @@ def init(
     project: Path = typer.Option(Path("."), "--project", help="Project root path"),
 ) -> None:
     project_root = project.resolve()
-    target = project_root / "djangoguard.toml"
+    target = project_root / "django_security_hunter.toml"
     if target.exists():
-        typer.echo("djangoguard.toml already exists.")
+        typer.echo("django_security_hunter.toml already exists.")
         raise typer.Exit(code=0)
 
     sample = (
@@ -131,3 +131,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

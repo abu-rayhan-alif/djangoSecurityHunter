@@ -1,6 +1,6 @@
-# djangoguard Rule Catalog
+﻿# django_security_hunter Rule Catalog
 
-This document defines the rule IDs, severities, purpose, and remediation guidance for `djangoguard`.
+This document defines the rule IDs, severities, purpose, and remediation guidance for `django_security_hunter`.
 
 ## Severity Model
 
@@ -111,3 +111,4 @@ This document defines the rule IDs, severities, purpose, and remediation guidanc
 
 Some rules intentionally use best-effort heuristics.  
 Heuristic results should be interpreted with engineering judgment and confirmed manually before major architectural changes.
+
