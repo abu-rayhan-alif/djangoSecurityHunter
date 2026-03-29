@@ -31,11 +31,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/abu-rayhan-alif/djangoGuard"
-Repository = "https://github.com/abu-rayhan-alif/djangoGuard"
-Issues = "https://github.com/abu-rayhan-alif/djangoGuard/issues"
-Documentation = "https://github.com/abu-rayhan-alif/djangoGuard/blob/main/docs/rules.md"
-Changelog = "https://github.com/abu-rayhan-alif/djangoGuard/releases"
+Homepage = "https://github.com/abu-rayhan-alif/djangoSecurityHunter"
+Repository = "https://github.com/abu-rayhan-alif/djangoSecurityHunter"
+Issues = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/issues"
+Documentation = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/blob/main/docs/rules.md"
+Changelog = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/releases"
 
 [project.optional-dependencies]
 dev = [

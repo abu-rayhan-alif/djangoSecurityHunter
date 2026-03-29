@@ -16,12 +16,12 @@ Static and config checks · optional query profiling · **SARIF** for GitHub Cod
 
 [![PyPI](https://img.shields.io/pypi/v/django-security-hunter.svg?style=flat-square&label=PyPI)](https://pypi.org/project/django-security-hunter/)
 [![Python](https://img.shields.io/pypi/pyversions/django-security-hunter.svg?style=flat-square&label=Python)](https://pypi.org/project/django-security-hunter/)
-[![License](https://img.shields.io/badge/License-MIT-0d1117?style=flat-square&labelColor=30363d)](https://github.com/abu-rayhan-alif/djangoGuard/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/abu-rayhan-alif/djangoGuard/ci.yml?style=flat-square&label=CI&logo=github)](https://github.com/abu-rayhan-alif/djangoGuard/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-MIT-0d1117?style=flat-square&labelColor=30363d)](https://github.com/abu-rayhan-alif/djangoSecurityHunter/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/abu-rayhan-alif/djangoSecurityHunter/ci.yml?style=flat-square&label=CI&logo=github)](https://github.com/abu-rayhan-alif/djangoSecurityHunter/actions/workflows/ci.yml)
 
 **Install:** `pip install django-security-hunter` · **CLI:** `django_security_hunter` or `djangoguard`
 
-[Install & run](#install-and-run) · [At a glance](#at-a-glance-what-gets-checked) · [Quick start](#quick-start) · [CI](#use-in-github--gitlab-ci) · [Rules](docs/rules.md) · [**GitHub** (star / contribute)](https://github.com/abu-rayhan-alif/djangoGuard) · [Issues](https://github.com/abu-rayhan-alif/djangoGuard/issues)
+[Install & run](#install-and-run) · [At a glance](#at-a-glance-what-gets-checked) · [Quick start](#quick-start) · [CI](#use-in-github--gitlab-ci) · [Rules](docs/rules.md) · [**GitHub** (star / contribute)](https://github.com/abu-rayhan-alif/djangoSecurityHunter) · [Issues](https://github.com/abu-rayhan-alif/djangoSecurityHunter/issues)
 
 Maintained by [Abu Rayhan Alif](https://github.com/abu-rayhan-alif)
 
@@ -227,7 +227,7 @@ pip install django-security-hunter
 **From source** (folder name can match your clone):
 
 ```bash
-git clone https://github.com/abu-rayhan-alif/djangoGuard.git django-security-hunter
+git clone https://github.com/abu-rayhan-alif/djangoSecurityHunter.git django-security-hunter
 cd django-security-hunter
 python -m venv .venv
 # Windows PowerShell
