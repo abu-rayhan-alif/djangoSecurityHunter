@@ -1,0 +1,36 @@
+name: 'Django Security Hunter'
+description: 'Django + DRF security, reliability and performance inspector'
+author: 'Abu Rayhan Alif'
+inputs:
+  project:
+    description: 'Path to project root'
+    required: false
+    default: '.'
+  settings:
+    description: 'Django settings module (e.g. config.settings)'
+    required: true
+  threshold:
+    description: 'Exit code 2 if any finding >= threshold'
+    required: false
+    default: 'WARN'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - 'scan'
+    - '--project'
+    - ${{ inputs.project }}
+    - '--settings'
+    - ${{ inputs.settings }}
+    - '--threshold'
+    - ${{ inputs.threshold }}
+    - '--allow-project-code'
+    - '--format'
+    - 'sarif'
+    - '--output'
+    - 'django-security-hunter.sarif'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
