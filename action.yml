@@ -1,0 +1,36 @@
+name: 'Django Security Hunter'
+description: 'Fast, automated security and performance inspector for Django and DRF.'
+author: 'Abu Rayhan Alif'
+inputs:
+  project:
+    description: 'Path to project root directory'
+    required: false
+    default: '.'
+  settings:
+    description: 'Django settings module (e.g. config.settings)'
+    required: true
+  threshold:
+    description: 'Severity threshold (INFO, WARN, HIGH, CRITICAL)'
+    required: false
+    default: 'WARN'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - 'scan'
+    - '--project'
+    - ${{ inputs.project }}
+    - '--settings'
+    - ${{ inputs.settings }}
+    - '--threshold'
+    - ${{ inputs.threshold }}
+    - '--allow-project-code'
+    - '--format'
+    - 'sarif'
+    - '--output'
+    - 'django-security-hunter.sarif'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
