@@ -1,11 +1,11 @@
-﻿"""Run Semgrep and map JSON output to DJG062 findings."""
+"""Run Semgrep and map JSON output to DJG062 findings."""
 
 from __future__ import annotations
 
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 from typing import Any
 
@@ -110,7 +110,7 @@ def run_semgrep(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
         str(root),
     ]
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             cmd,
             cwd=root,
             capture_output=True,

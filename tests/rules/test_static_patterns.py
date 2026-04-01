@@ -98,3 +98,59 @@ def test_djg070_template_autoescape_off(tmp_path: Path) -> None:
         f.rule_id == "DJG070" and "autoescape" in (f.title or "").lower()
         for f in findings
     )
+
+
+def test_djg075_execute_fstring_high(tmp_path: Path) -> None:
+    p = tmp_path / "sql.py"
+    p.write_text(
+        "def run(c, uid):\n"
+        '    c.execute(f"SELECT * FROM u WHERE id={uid}")\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG075" and f.severity == "HIGH" for f in findings)
+
+
+def test_djg075_execute_literal_ignored(tmp_path: Path) -> None:
+    p = tmp_path / "ok_sql.py"
+    p.write_text(
+        'def run(c, uid):\n'
+        '    c.execute("SELECT * FROM u WHERE id=%s", [uid])\n',
+        encoding="utf-8",
+    )
+    assert not any(f.rule_id == "DJG075" for f in run_static_pattern_rules(tmp_path))
+
+
+def test_djg075_objects_raw_mod_high(tmp_path: Path) -> None:
+    p = tmp_path / "raw_orm.py"
+    p.write_text(
+        "class Entry:\n"
+        "    objects = None\n\n"
+        'def bad(table):\n'
+        '    Entry.objects.raw("SELECT * FROM %s" % table)\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG075" and f.severity == "HIGH" for f in findings)
+
+
+def test_djg075_rawsql_name_high(tmp_path: Path) -> None:
+    p = tmp_path / "expr.py"
+    p.write_text(
+        "def q(x):\n"
+        '    return RawSQL(f"SELECT col FROM t WHERE id={x}", [])\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG075" for f in findings)
+
+
+def test_djg075_execute_variable_warn(tmp_path: Path) -> None:
+    p = tmp_path / "dyn.py"
+    p.write_text(
+        "def run(c, sql, params):\n"
+        "    c.execute(sql, params)\n",
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG075" and f.severity == "WARN" for f in findings)

@@ -6,7 +6,7 @@ from __future__ import annotations
 REPORT_JSON_SCHEMA_VERSION = "django_security_hunter.report.v1"
 
 # Repository / docs home for SARIF tool driver and README links.
-INFORMATION_URI = "https://github.com/abu-rayhan-alif/djangoGuard"
+INFORMATION_URI = "https://github.com/abu-rayhan-alif/djangoSecurityHunter"
 
 
 def package_version() -> str:

@@ -4,7 +4,7 @@ import ast
 import importlib.util
 import json
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 import tempfile
 from pathlib import Path
@@ -221,7 +221,7 @@ def _invoke_pytest_profile(project_root: Path, settings_module: str | None, out_
         "-p",
         "django_security_hunter.profile_pytest",
     ]
-    subprocess.run(
+    subprocess.run(  # nosec B603
         cmd,
         cwd=str(project_root.resolve()),
         env=env,
@@ -244,7 +244,7 @@ def _invoke_django_profile(
         "django_security_hunter.django_profile_runner",
         str(project_root.resolve()),
     ]
-    subprocess.run(
+    subprocess.run(  # nosec B603
         cmd,
         cwd=str(project_root.resolve()),
         env=env,

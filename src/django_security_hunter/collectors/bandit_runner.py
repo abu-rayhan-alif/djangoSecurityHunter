@@ -1,9 +1,9 @@
-﻿"""Run Bandit and map JSON output to DJG061 findings."""
+"""Run Bandit and map JSON output to DJG061 findings."""
 
 from __future__ import annotations
 
 import json
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -89,7 +89,7 @@ def run_bandit(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
     targets = _scan_targets(root)
     cmd = [sys.executable, "-m", "bandit", "-f", "json", "-q", "-r", *targets]
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             cmd,
             cwd=root,
             capture_output=True,

@@ -1,0 +1,40 @@
+# Copy into your Django app repo as .gitlab-ci.yml (or include from .gitlab/ci/)
+# GitLab does not use GitHub's upload-sarif action; keep JSON/console artifacts or
+# use a generic SARIF viewer / merge request widget if your tier supports it.
+#
+# django_security_hunter exits 2 when findings meet --threshold → pipeline fails → MR not green.
+
+stages:
+  - security
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+django_security_hunter:
+  stage: security
+  image: python:3.12-slim
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install django-security-hunter
+    # - pip install -r requirements.txt   # uncomment if needed
+  script:
+    - mkdir -p reports
+    - |
+      django_security_hunter scan \
+        --project . \
+        --settings yourproject.settings \
+        --format json \
+        --output reports/django_security_hunter.json \
+        --threshold HIGH
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

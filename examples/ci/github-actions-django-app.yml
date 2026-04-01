@@ -1,0 +1,62 @@
+# Copy into your Django app repo as .github/workflows/django-security-hunter.yml
+# Adjust: python-version, settings module, --threshold (INFO | WARN | HIGH | CRITICAL).
+#
+# Exit codes: 0 = OK for threshold, 2 = finding at/above threshold → job fails → PR blocked
+# if branch protection requires this check.
+
+name: Django security scan
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  # Only needed if you upload SARIF to Code Scanning:
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tool (and your app deps if rules need Django apps)
+        run: |
+          python -m pip install --upgrade pip
+          pip install django-security-hunter
+          # pip install -r requirements.txt   # uncomment if your project needs it
+
+      - name: Run scan — fail job on HIGH+ (blocks PR if required check)
+        run: |
+          mkdir -p reports
+          django_security_hunter scan \
+            --project . \
+            --settings yourproject.settings \
+            --format json \
+            --output reports/django_security_hunter.json \
+            --threshold HIGH
+
+      # Optional: SARIF even when gate fails (|| true); upload is best-effort.
+      - name: SARIF for GitHub Code Scanning
+        if: always()
+        run: |
+          mkdir -p reports
+          django_security_hunter scan \
+            --project . \
+            --settings yourproject.settings \
+            --format sarif \
+            --output reports/django_security_hunter.sarif \
+            --threshold INFO || true
+
+      - name: Upload SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: reports/django_security_hunter.sarif

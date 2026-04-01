@@ -53,3 +53,18 @@ def test_load_config_invalid_ints_fallback(tmp_path: Path) -> None:
     assert cfg.query_count_threshold == 50
     assert cfg.db_time_ms_threshold == 200
 
+
+def test_load_config_score_weights(tmp_path: Path) -> None:
+    (tmp_path / "djangoguard.toml").write_text(
+        "score_weight_info = 2\n"
+        "score_weight_warn = 7\n"
+        "score_weight_high = 20\n"
+        "score_weight_critical = 50\n",
+        encoding="utf-8",
+    )
+    cfg = load_config(tmp_path)
+    assert cfg.score_weight_info == 2
+    assert cfg.score_weight_warn == 7
+    assert cfg.score_weight_high == 20
+    assert cfg.score_weight_critical == 50
+

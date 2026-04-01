@@ -39,6 +39,49 @@ _SENSITIVE_LOG_SNIPPETS = (
 )
 
 
+def _joined_str_has_interpolation(node: ast.JoinedStr) -> bool:
+    return any(isinstance(v, ast.FormattedValue) for v in node.values)
+
+
+def _sql_arg_taint_severity(node: ast.expr) -> str | None:
+    """Return HIGH/WARN if *node* is not a safe static SQL literal; else None.
+
+    Safe: plain string constant (including ``%s`` placeholders with params).
+    HIGH: f-strings, ``%`` formatting, ``.format``, non-trivial string concat.
+    WARN: variable/attribute/call (SQL built elsewhere—may still use parameters).
+    """
+    if isinstance(node, ast.Constant):
+        return None if isinstance(node.value, str) else "WARN"
+
+    if isinstance(node, ast.JoinedStr):
+        return "HIGH" if _joined_str_has_interpolation(node) else None
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        return "HIGH"
+
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+            return "HIGH"
+        if isinstance(node.func, ast.Name) and node.func.id == "format":
+            return "HIGH"
+        return "WARN"
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        lc = isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)
+        rc = isinstance(node.right, ast.Constant) and isinstance(node.right.value, str)
+        if lc and rc:
+            return None
+        return "HIGH"
+
+    if isinstance(node, ast.BinOp):
+        return "WARN"
+
+    if isinstance(node, (ast.Name, ast.Attribute, ast.Subscript)):
+        return "WARN"
+
+    return "WARN"
+
+
 class _StaticVisitor(ast.NodeVisitor):
     def __init__(
         self,
@@ -79,6 +122,7 @@ class _StaticVisitor(ast.NodeVisitor):
         self._check_eval_exec(node)
         self._check_http_get_ssrf(node)
         self._check_logging_leak(node)
+        self._check_sql_injection_heuristic(node)
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -202,6 +246,55 @@ class _StaticVisitor(ast.NodeVisitor):
                 ),
                 node.lineno,
             )
+
+    def _check_sql_injection_heuristic(self, node: ast.Call) -> None:
+        """DJG075 — best-effort SQL injection patterns (not full taint analysis)."""
+        fn = node.func
+        check_arg0 = False
+        is_manager_raw = False
+
+        if isinstance(fn, ast.Name) and fn.id == "RawSQL":
+            check_arg0 = True
+        elif isinstance(fn, ast.Attribute):
+            if fn.attr in ("execute", "executemany"):
+                check_arg0 = True
+            elif fn.attr == "raw" and isinstance(fn.value, ast.Attribute):
+                if fn.value.attr == "objects":
+                    is_manager_raw = True
+                    check_arg0 = True
+
+        if not check_arg0 or not node.args:
+            return
+
+        sev = _sql_arg_taint_severity(node.args[0])
+        if sev is None:
+            return
+
+        if is_manager_raw:
+            ctx = "ORM .objects.raw()"
+        elif isinstance(fn, ast.Name) and fn.id == "RawSQL":
+            ctx = "RawSQL()"
+        elif isinstance(fn, ast.Attribute):
+            ctx = f".{fn.attr}()"
+        else:
+            ctx = "SQL API"
+
+        self._add(
+            "DJG075",
+            sev,
+            "Possible SQL injection (dynamic SQL string)",
+            (
+                f"{ctx} receives a non-literal SQL fragment; string formatting or "
+                "concatenation with untrusted data can lead to SQL injection. "
+                "This rule is heuristic and may false-positive."
+            ),
+            (
+                "Use the ORM, or cursor.execute() with a fixed SQL string and a "
+                "separate parameter sequence (%s placeholders); never interpolate "
+                "untrusted data into the SQL text.\n"
+            ),
+            node.lineno,
+        )
 
     def _check_eval_exec(self, node: ast.Call) -> None:
         if isinstance(node.func, ast.Name) and node.func.id in {"eval", "exec"}:

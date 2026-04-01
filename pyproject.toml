@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "django-security-hunter"
 version = "0.4.0"
-description = "Django + DRF security, reliability and performance inspector"
+description = "Install: pip install django-security-hunter. Run: django_security_hunter scan --project . --settings yourproject.settings. Django & DRF security/reliability inspector (settings, REST defaults, static XSS/SSRF/secrets hints, ORM & N+1 signals); optional pip-audit, Bandit, Semgrep; JSON & SARIF."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -31,10 +31,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/abu-rayhan-alif/djangoGuard"
-Repository = "https://github.com/abu-rayhan-alif/djangoGuard"
-Issues = "https://github.com/abu-rayhan-alif/djangoGuard/issues"
-Documentation = "https://github.com/abu-rayhan-alif/djangoGuard/blob/main/docs/rules.md"
+Homepage = "https://github.com/abu-rayhan-alif/djangoSecurityHunter"
+Repository = "https://github.com/abu-rayhan-alif/djangoSecurityHunter"
+Issues = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/issues"
+Documentation = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/blob/main/docs/rules.md"
+Changelog = "https://github.com/abu-rayhan-alif/djangoSecurityHunter/releases"
 
 [project.optional-dependencies]
 dev = [
@@ -42,6 +43,13 @@ dev = [
   "pip-audit>=2.6",
   "bandit>=1.7",
   "pytest-django>=4.8",
+  "black>=26.3.1",
+  "cryptography>=46.0.6",
+  "gunicorn>=22.0.0",
+  "pygments>=2.20.0",
+  "pyjwt>=2.12.0",
+  "requests>=2.33.0",
+  "urllib3>=2.6.3",
 ]
 
 [project.scripts]

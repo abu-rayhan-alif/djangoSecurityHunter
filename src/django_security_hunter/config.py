@@ -28,6 +28,10 @@ class GuardConfig:
     pip_audit: bool = False
     bandit: bool = False
     semgrep: bool = False
+    score_weight_info: int = 1
+    score_weight_warn: int = 5
+    score_weight_high: int = 15
+    score_weight_critical: int = 40
 
 
 def _safe_int(
@@ -133,5 +137,11 @@ def load_config(project_root: Path) -> GuardConfig:
         ),
         semgrep=_bool_from_config(
             config_data, "semgrep", "enable_semgrep", False
+        ),
+        score_weight_info=_safe_int(config_data.get("score_weight_info", 1), 1),
+        score_weight_warn=_safe_int(config_data.get("score_weight_warn", 5), 5),
+        score_weight_high=_safe_int(config_data.get("score_weight_high", 15), 15),
+        score_weight_critical=_safe_int(
+            config_data.get("score_weight_critical", 40), 40
         ),
     )
