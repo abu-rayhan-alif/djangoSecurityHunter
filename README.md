@@ -38,8 +38,10 @@ This package is a **standalone CLI** (it does **not** register a `manage.py` sub
 
 ```bash
 pip install django-security-hunter
-django_security_hunter scan --project . --settings yourproject.settings --format console
+django_security_hunter scan --project . --settings yourproject.settings --allow-project-code --format console
 ```
+
+`--allow-project-code` confirms that you allow the tool to load and execute project code paths (for example, Django settings import side effects). Use it only for repositories you trust/control.
 
 Replace `yourproject.settings` with the same module you use for `DJANGO_SETTINGS_MODULE` (for example `config.settings` or `mysite.settings`). Omitting `--settings` still runs many file-based checks, but **Django settings rules** (e.g. `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, HTTPS cookies) are skipped.
 
@@ -48,8 +50,8 @@ Replace `yourproject.settings` with the same module you use for `DJANGO_SETTINGS
 **Optional:** write reports to disk as JSON or SARIF (for GitHub Code Scanning):
 
 ```bash
-django_security_hunter scan --project . --settings yourproject.settings --format json --output reports/scan.json
-django_security_hunter scan --project . --settings yourproject.settings --format sarif --output reports/scan.sarif
+django_security_hunter scan --project . --settings yourproject.settings --allow-project-code --format json --output reports/scan.json
+django_security_hunter scan --project . --settings yourproject.settings --allow-project-code --format sarif --output reports/scan.sarif
 ```
 
 PyPI **Project links** (Homepage, Source, Issues, Documentation, Changelog) come from `[project.urls]` in `pyproject.toml` and point at this repo so you can **star**, **fork**, or **open PRs** on GitHub.
@@ -252,7 +254,7 @@ pip install -e ".[dev]"
 3. **Run a scan** — replace `mysite.settings` with your real settings module (the same string you use for `DJANGO_SETTINGS_MODULE`):
 
    ```bash
-   django_security_hunter scan --project . --settings mysite.settings --format console
+   django_security_hunter scan --project . --settings mysite.settings --allow-project-code --format console
    ```
 
    Without `--settings`, many checks still run on your Python files, but **Django settings checks** (e.g. `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`) are skipped.
@@ -260,14 +262,14 @@ pip install -e ".[dev]"
 4. **Save a report to a file** (optional):
 
    ```bash
-   django_security_hunter scan --project . --settings mysite.settings --format json --output reports/scan.json
-   django_security_hunter scan --project . --settings mysite.settings --format sarif --output reports/scan.sarif
+   django_security_hunter scan --project . --settings mysite.settings --allow-project-code --format json --output reports/scan.json
+   django_security_hunter scan --project . --settings mysite.settings --allow-project-code --format sarif --output reports/scan.sarif
    ```
 
 5. **Fail CI when something serious is found** — add `--threshold HIGH` (or `WARN` / `CRITICAL`). If any finding is at or above that level, the command exits with code `2`.
 
    ```bash
-   django_security_hunter scan --project . --settings mysite.settings --threshold HIGH --format console
+   django_security_hunter scan --project . --settings mysite.settings --allow-project-code --threshold HIGH --format console
    ```
 
 ## Commands
@@ -281,7 +283,13 @@ Static and configuration analysis; writes a report in the chosen format.
 Static heuristics (e.g. DJG045) plus, by default, a nested **`pytest`** run with **`django_security_hunter.profile_pytest`**, recording per-test **query count**, **SQL time**, and **repeated SQL signatures** (DJG040–DJG042 / DJG041). Thresholds: `query_count_threshold`, `db_time_ms_threshold` in config.
 
 ```bash
-django_security_hunter profile --project . --settings mysite.settings --format console
+django_security_hunter profile --project . --settings mysite.settings --allow-project-code --format console
+```
+
+Short form:
+
+```bash
+django_security_hunter scan -p . -s mysite.settings -y -f console
 ```
 
 ### `django_security_hunter init`
@@ -333,6 +341,9 @@ db_time_ms_threshold = 200
 | `--output` | Write report to file (UTF-8) |
 | `--threshold` | `INFO` · `WARN` · `HIGH` · `CRITICAL` — exit `2` if any finding ≥ threshold |
 | `--force-color` / `--no-color` | Console styling (when supported) |
+| `--allow-project-code` | Required for `profile`, and for `scan` when `--settings` is used (acknowledges code execution risk) |
+
+Short aliases: `-p` (`--project`), `-s` (`--settings`), `-f` (`--format`), `-o` (`--output`), `-t` (`--threshold`), `-y` (`--allow-project-code`).
 
 ## Rule highlights
 

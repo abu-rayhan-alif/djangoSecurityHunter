@@ -84,18 +84,43 @@ def _effective_threshold(cli_value: str | None, config_default: str) -> str:
     return raw
 
 
+def _require_project_code_ack(
+    *,
+    allow_project_code: bool,
+    mode: str,
+    uses_settings: bool,
+) -> None:
+    if allow_project_code:
+        return
+    if mode == "scan" and not uses_settings:
+        return
+    msg = (
+        "Safety gate: this command can execute target project code "
+        f"({mode} mode"
+    )
+    if uses_settings:
+        msg += " with Django settings loading"
+    msg += "). Re-run with --allow-project-code only for repositories you control."
+    typer.secho(msg, fg=typer.colors.YELLOW, err=True)
+    raise typer.Exit(code=2)
+
+
 @app.command()
 def scan(
-    project: Path = typer.Option(Path("."), "--project", help="Project root path"),
+    project: Path = typer.Option(
+        Path("."), "--project", "-p", help="Project root path"
+    ),
     settings: str | None = typer.Option(
-        None, "--settings", help="Django settings module"
+        None, "--settings", "-s", help="Django settings module"
     ),
     output_format: str = typer.Option(
-        "console", "--format", help="console|json|sarif"
+        "console", "--format", "-f", help="console|json|sarif"
     ),
-    output: Path | None = typer.Option(None, "--output", help="Write report to file"),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write report to file"
+    ),
     threshold: str | None = typer.Option(
-        None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
+        None, "--threshold", "-t", help="INFO|WARN|HIGH|CRITICAL"
     ),
     force_color: bool = typer.Option(
         False,
@@ -107,8 +132,22 @@ def scan(
         "--no-color",
         help="Plain text console output (no panels / colors).",
     ),
+    allow_project_code: bool = typer.Option(
+        False,
+        "--allow-project-code",
+        "-y",
+        help=(
+            "Allow loading project code for settings analysis. "
+            "Required when --settings is used."
+        ),
+    ),
 ) -> None:
     project_root = project.resolve()
+    _require_project_code_ack(
+        allow_project_code=allow_project_code,
+        mode="scan",
+        uses_settings=bool(settings),
+    )
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(
@@ -127,16 +166,20 @@ def scan(
 
 @app.command()
 def profile(
-    project: Path = typer.Option(Path("."), "--project", help="Project root path"),
+    project: Path = typer.Option(
+        Path("."), "--project", "-p", help="Project root path"
+    ),
     settings: str | None = typer.Option(
-        None, "--settings", help="Django settings module"
+        None, "--settings", "-s", help="Django settings module"
     ),
     output_format: str = typer.Option(
-        "console", "--format", help="console|json|sarif"
+        "console", "--format", "-f", help="console|json|sarif"
     ),
-    output: Path | None = typer.Option(None, "--output", help="Write report to file"),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write report to file"
+    ),
     threshold: str | None = typer.Option(
-        None, "--threshold", help="INFO|WARN|HIGH|CRITICAL"
+        None, "--threshold", "-t", help="INFO|WARN|HIGH|CRITICAL"
     ),
     force_color: bool = typer.Option(
         False,
@@ -148,8 +191,22 @@ def profile(
         "--no-color",
         help="Plain text console output (no panels / colors).",
     ),
+    allow_project_code: bool = typer.Option(
+        False,
+        "--allow-project-code",
+        "-y",
+        help=(
+            "Allow profile mode to run target test code/subprocesses. "
+            "Required for profile mode."
+        ),
+    ),
 ) -> None:
     project_root = project.resolve()
+    _require_project_code_ack(
+        allow_project_code=allow_project_code,
+        mode="profile",
+        uses_settings=bool(settings),
+    )
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_profile(

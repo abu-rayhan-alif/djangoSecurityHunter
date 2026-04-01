@@ -47,6 +47,38 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+      - name: Dependency audit (project environment)
+        run: |
+          mkdir -p reports
+          pip install pip-audit
+          pip-audit --format json --progress-spinner off > reports/pip-audit.json
+          python -c "
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('reports/pip-audit.json').read_text(encoding='utf-8') or '{}')
+          deps = data.get('dependencies') or []
+          fail = []
+          for dep in deps:
+              name = dep.get('name', '?')
+              ver = dep.get('version', '?')
+              for vuln in dep.get('vulns') or []:
+                  sev = ''
+                  raw = vuln.get('severity')
+                  if isinstance(raw, dict):
+                      sev = str(raw.get('name') or raw.get('value') or '').strip().lower()
+                  elif isinstance(raw, str):
+                      sev = raw.strip().lower()
+                  if sev in ('high', 'critical'):
+                      fail.append(f'{name} {ver} {vuln.get(\"id\", \"unknown\")} {sev}')
+          if fail:
+              print('High/Critical dependency vulnerabilities found:')
+              for row in fail:
+                  print('-', row)
+              raise SystemExit(1)
+          print('Dependency audit passed: no HIGH/CRITICAL vulnerabilities found.')
+          "
+
       - name: Run django_security_hunter scan (package tree)
         run: |
           mkdir -p reports
@@ -64,6 +96,7 @@ jobs:
           django_security_hunter scan \
             --project tests/fixtures/djg001_proj \
             --settings mysite.settings_ci \
+            --allow-project-code \
             --format json \
             --output reports/django_security_hunter.fixture.json \
             --threshold CRITICAL

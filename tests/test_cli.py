@@ -52,12 +52,63 @@ def test_scan_json_runs(tmp_path: Path) -> None:
     assert '"mode": "scan"' in result.stdout
 
 
+def test_scan_with_settings_requires_gate(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--format",
+            "json",
+            "--project",
+            str(tmp_path),
+            "--settings",
+            "invalid settings",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Safety gate" in (result.stdout + (result.stderr or ""))
+
+
+def test_scan_with_settings_allows_with_flag(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--format",
+            "json",
+            "--project",
+            str(tmp_path),
+            "--settings",
+            "invalid settings",
+            "--allow-project-code",
+        ],
+    )
+    assert result.exit_code == 0
+    assert '"mode": "scan"' in result.stdout
+
+
 def test_profile_sarif_runs(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["profile", "--format", "sarif", "--project", str(tmp_path)]
+        app,
+        [
+            "profile",
+            "--format",
+            "sarif",
+            "--project",
+            str(tmp_path),
+            "--allow-project-code",
+        ],
     )
     assert result.exit_code == 0
     assert '"version": "2.1.0"' in result.stdout
+
+
+def test_profile_requires_gate(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["profile", "--format", "sarif", "--project", str(tmp_path)]
+    )
+    assert result.exit_code == 2
+    assert "Safety gate" in (result.stdout + (result.stderr or ""))
 
 
 def test_scan_rejects_invalid_threshold(tmp_path: Path) -> None:
