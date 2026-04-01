@@ -1,9 +1,9 @@
-﻿"""Run pip-audit and parse JSON output (DJG060)."""
+"""Run pip-audit and parse JSON output (DJG060)."""
 
 from __future__ import annotations
 
 import json
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -109,7 +109,7 @@ def run_pip_audit(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
     root = project_root.resolve()
     cmd = [sys.executable, "-m", "pip_audit", "--format", "json"]
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             cmd,
             cwd=root,
             capture_output=True,

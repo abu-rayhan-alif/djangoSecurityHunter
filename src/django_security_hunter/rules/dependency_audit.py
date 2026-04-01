@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -84,7 +84,7 @@ def run_dependency_audit_rules(
         return []
     root = project_root.resolve()
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             [
                 sys.executable,
                 "-m",

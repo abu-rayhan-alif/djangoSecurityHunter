@@ -18,6 +18,7 @@ Static and config checks · optional query profiling · **SARIF** for GitHub Cod
 [![Python](https://img.shields.io/pypi/pyversions/django-security-hunter.svg?style=flat-square&label=Python)](https://pypi.org/project/django-security-hunter/)
 [![License](https://img.shields.io/badge/License-MIT-0d1117?style=flat-square&labelColor=30363d)](https://github.com/abu-rayhan-alif/djangoSecurityHunter/blob/main/LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/abu-rayhan-alif/djangoSecurityHunter/ci.yml?style=flat-square&label=CI&logo=github)](https://github.com/abu-rayhan-alif/djangoSecurityHunter/actions/workflows/ci.yml)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-1f6feb?style=flat-square)](https://github.com/abu-rayhan-alif/djangoSecurityHunter/blob/main/SECURITY.md)
 
 **Install:** `pip install django-security-hunter` · **CLI:** `django_security_hunter` or `djangoguard`
 
@@ -30,6 +31,9 @@ Maintained by [Abu Rayhan Alif](https://github.com/abu-rayhan-alif)
 > [!TIP]
 > **New here?** Use [Install and run](#install-and-run) below, then [Quick start](#quick-start) and [CI](#use-in-github--gitlab-ci) when you automate.
 
+> [!IMPORTANT]
+> **Why teams choose this tool:** one CLI for Django+DRF checks, CI-friendly exit codes, and SARIF output for GitHub Security tab visibility.
+
 ---
 
 ## Install and run
@@ -39,6 +43,12 @@ This package is a **standalone CLI** (it does **not** register a `manage.py` sub
 ```bash
 pip install django-security-hunter
 django_security_hunter scan --project . --settings yourproject.settings --allow-project-code --format console
+```
+
+Quick copy (short flags):
+
+```bash
+djangoguard scan -p . -s yourproject.settings -y -f console
 ```
 
 `--allow-project-code` confirms that you allow the tool to load and execute project code paths (for example, Django settings import side effects). Use it only for repositories you trust/control.
@@ -201,6 +211,13 @@ Below is what each area is meant to catch. Most rules are **heuristic**—useful
 | 🔌 | **Integrations** | Optional **pip-audit** (DJG060), **Bandit** (DJG061), **Semgrep** (DJG062) via config or env |
 | ✓ | **CI** | Exit code `2` when findings meet `--threshold` |
 
+**Feature cards (quick view)**
+
+- **Secure-by-default checks**: Django settings, DRF defaults, static security patterns, and model integrity hints in one run.
+- **CI-ready output**: human console output for devs and SARIF for GitHub Security tab workflows.
+- **Performance visibility**: profile mode surfaces query count, duplicate SQL, and DB time hotspots.
+- **Extensible scanning**: optional `pip-audit`, Bandit, and Semgrep integration when teams need deeper coverage.
+
 ## Documentation
 
 | Doc | Link |
@@ -240,6 +257,25 @@ pip install -e ".[dev]"
 ```
 
 ## Quick start
+
+### 30-second quickstart
+
+```bash
+pip install django-security-hunter
+djangoguard scan -p . -s mysite.settings -y -f console
+```
+
+If findings at or above your threshold should fail CI:
+
+```bash
+djangoguard scan -p . -s mysite.settings -y -f sarif -o reports/scan.sarif -t HIGH
+```
+
+Track score trend across runs:
+
+```bash
+djangoguard scan -p . -s mysite.settings -y -f json --trend-history reports/trend.json -o reports/scan.json
+```
 
 **You need:** a terminal, Python 3.11+, and a Django project folder that contains `manage.py`.
 
@@ -328,6 +364,10 @@ db_time_ms_threshold = 200
 # pip_audit = true
 # bandit = true
 # semgrep = true
+# score_weight_info = 1
+# score_weight_warn = 5
+# score_weight_high = 15
+# score_weight_critical = 40
 # Legacy aliases also work: enable_pip_audit, enable_bandit, enable_semgrep
 ```
 
@@ -342,6 +382,7 @@ db_time_ms_threshold = 200
 | `--threshold` | `INFO` · `WARN` · `HIGH` · `CRITICAL` — exit `2` if any finding ≥ threshold |
 | `--force-color` / `--no-color` | Console styling (when supported) |
 | `--allow-project-code` | Required for `profile`, and for `scan` when `--settings` is used (acknowledges code execution risk) |
+| `--trend-history` | Optional JSON file path to persist score history and include trend deltas in report metadata |
 
 Short aliases: `-p` (`--project`), `-s` (`--settings`), `-f` (`--format`), `-o` (`--output`), `-t` (`--threshold`), `-y` (`--allow-project-code`).
 

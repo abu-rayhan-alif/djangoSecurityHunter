@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -57,7 +57,7 @@ def run_bandit_rules(project_root: Path, cfg: GuardConfig) -> list[Finding]:
         return []
     root = project_root.resolve()
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             [
                 sys.executable,
                 "-m",
@@ -159,7 +159,7 @@ def run_semgrep_rules(project_root: Path, cfg: GuardConfig) -> list[Finding]:
         ]
     )
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             cmd,
             cwd=str(root),
             capture_output=True,

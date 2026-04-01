@@ -50,6 +50,8 @@ def test_scan_json_runs(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert '"mode": "scan"' in result.stdout
+    assert '"security_score"' in result.stdout
+    assert '"security_trend"' in result.stdout
 
 
 def test_scan_with_settings_requires_gate(tmp_path: Path) -> None:
