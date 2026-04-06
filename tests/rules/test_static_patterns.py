@@ -145,6 +145,42 @@ def test_djg075_rawsql_name_high(tmp_path: Path) -> None:
     assert any(f.rule_id == "DJG075" for f in findings)
 
 
+def test_djg073_no_finding_operational_token_logs(tmp_path: Path) -> None:
+    p = tmp_path / "ops.py"
+    p.write_text(
+        'import logging\nlog = logging.getLogger("x")\n'
+        'log.error("Redis refresh-token blacklist connection failed: %s", err)\n'
+        'log.warning("Admin password reset email failed for %s: %s", a, b)\n'
+        'log.info("Registered refresh token issuance: user_id=%s", uid)\n'
+        'log.info("Set BD_SMS_API_URL to enable SMS; got: %s", msg)\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert not any(f.rule_id == "DJG073" for f in findings)
+
+
+def test_djg073_finding_raw_password_in_message(tmp_path: Path) -> None:
+    p = tmp_path / "leak.py"
+    p.write_text(
+        'import logging\nlog = logging.getLogger("x")\n'
+        'log.info("User password is %s for uid %s", password, uid)\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG073" for f in findings)
+
+
+def test_djg073_finding_authorization_header_literal(tmp_path: Path) -> None:
+    p = tmp_path / "hdr.py"
+    p.write_text(
+        'import logging\nlog = logging.getLogger("x")\n'
+        'log.debug("request headers: authorization: %s", h)\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG073" for f in findings)
+
+
 def test_djg075_execute_variable_warn(tmp_path: Path) -> None:
     p = tmp_path / "dyn.py"
     p.write_text(

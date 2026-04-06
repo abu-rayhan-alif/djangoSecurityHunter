@@ -1,4 +1,4 @@
-# Copy into your Django app repo as .github/workflows/django-security-hunter.yml
+# Copy into your Django app repo as .github/workflows/django_security_hunter.yml (name as you prefer)
 # Adjust: python-version, settings module, --threshold (INFO | WARN | HIGH | CRITICAL).
 #
 # Exit codes: 0 = OK for threshold, 2 = finding at/above threshold → job fails → PR blocked

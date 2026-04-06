@@ -7,5 +7,5 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: django_security_hunter scan --project /app --format console
+    command: ["scan", "--project", "/app", "--format", "console"]
 

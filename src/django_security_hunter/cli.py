@@ -16,6 +16,7 @@ from .output import (
     as_sarif,
     console_color_preferred,
     print_console_report,
+    print_django_settings_load_warning,
 )
 
 app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
@@ -61,21 +62,6 @@ def _emit(content: str, output: Path | None) -> None:
 def _exit_by_threshold(report, threshold: str) -> None:
     if report.has_threshold_hit(threshold):
         raise typer.Exit(code=2)
-
-
-def _warn_if_django_settings_not_loaded(report) -> None:
-    if report.mode != "scan":
-        return
-    if report.metadata.get("django_settings_loaded"):
-        return
-    parts = [
-        "Django settings were not loaded; DJG001–DJG012 rules were skipped."
-    ]
-    if sr := report.metadata.get("django_settings_skip_reason"):
-        parts.append(f"Reason: {sr}")
-    if err := report.settings_load_error_detail:
-        parts.append(err)
-    typer.secho(" ".join(parts), fg=typer.colors.YELLOW, err=True)
 
 
 def _effective_threshold(cli_value: str | None, config_default: str) -> str:
@@ -303,7 +289,9 @@ def scan(
         project_root=project_root, settings_module=settings, cfg=cfg
     )
     _attach_score_and_trend(report, trend_history, cfg)
-    _warn_if_django_settings_not_loaded(report)
+    print_django_settings_load_warning(
+        report, force_color=force_color, no_color=no_color
+    )
     _emit_formatted_report(
         report,
         output_format,

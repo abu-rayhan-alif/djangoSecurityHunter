@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-security-hunter"
-version = "0.4.0"
+version = "0.5.0"
 description = "Install: pip install django-security-hunter. Run: django_security_hunter scan --project . --settings yourproject.settings. Django & DRF security/reliability inspector (settings, REST defaults, static XSS/SSRF/secrets hints, ORM & N+1 signals); optional pip-audit, Bandit, Semgrep; JSON & SARIF."
 readme = "README.md"
 requires-python = ">=3.11"

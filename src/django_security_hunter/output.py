@@ -12,13 +12,25 @@ from .models import Report
 from .package_meta import INFORMATION_URI, package_version
 
 _SARIF_URI_MAX = 2048
+_SETTINGS_LOAD_README = f"{INFORMATION_URI}#when-django-settings-fail-to-load"
 
 
-def console_color_preferred(*, force: bool = False, no_color_flag: bool = False) -> bool:
-    """Whether styled console output is appropriate (TTY, env, flags)."""
+def _cli_panel_box() -> Any:
+    # ASCII box: Unicode U+250x borders break on legacy Windows cp1252 consoles.
+    from rich import box
+
+    return box.ASCII
+
+
+def _stream_allows_style(
+    stream: TextIO,
+    *,
+    force: bool = False,
+    no_color_flag: bool = False,
+) -> bool:
+    """Whether Rich styling is appropriate for *stream* (TTY, NO_COLOR, FORCE_COLOR)."""
     if no_color_flag:
         return False
-    # Explicit CLI flag wins over NO_COLOR (IDEs often set NO_COLOR for subprocesses).
     if force:
         return True
     if os.environ.get("NO_COLOR", "").strip():
@@ -28,9 +40,117 @@ def console_color_preferred(*, force: bool = False, no_color_flag: bool = False)
     ).strip():
         return True
     try:
-        return sys.stdout.isatty()
+        return stream.isatty()
     except (AttributeError, ValueError):
         return False
+
+
+def console_color_preferred(*, force: bool = False, no_color_flag: bool = False) -> bool:
+    """Whether styled console output is appropriate for stdout (TTY, env, flags)."""
+    return _stream_allows_style(sys.stdout, force=force, no_color_flag=no_color_flag)
+
+
+def print_django_settings_load_warning(
+    report: Report,
+    *,
+    force_color: bool = False,
+    no_color: bool = False,
+) -> None:
+    """Pretty-print the scan warning when Django settings did not load (stderr)."""
+    if report.mode != "scan":
+        return
+    if report.metadata.get("django_settings_loaded"):
+        return
+
+    summary = (
+        "Django settings were not loaded; DJG001-DJG012 and DRF settings-based "
+        "rules (DJG020-DJG023, DJG025-DJG026) were skipped. "
+        "Static analysis of your project files still ran."
+    )
+    detail_lines: list[str] = []
+    if sr := report.metadata.get("django_settings_skip_reason"):
+        detail_lines.append(f"Reason: {sr}")
+    if err := report.settings_load_error_detail:
+        detail_lines.append(err)
+
+    skip = report.metadata.get("django_settings_skip_reason")
+    err_detail = (report.settings_load_error_detail or "").lower()
+    has_settings_flag = bool(report.metadata.get("settings_module"))
+
+    tip: str | None = None
+    if skip == "no_settings_module":
+        tip = (
+            "Tip: pass `--settings <same-as-manage.py> --allow-project-code` "
+            "to check Django and DRF configuration in settings. "
+            'If you still have problems, see the README section '
+            f'"When Django settings fail to load": {_SETTINGS_LOAD_README}'
+        )
+    elif has_settings_flag and "secret_key" in err_detail:
+        tip = (
+            "Tip: export the variable your settings use for SECRET_KEY "
+            "(often DJANGO_SECRET_KEY) to a long random value in this terminal, "
+            "then run the scan again. "
+            'If problems persist, see README '
+            f'"When Django settings fail to load": {_SETTINGS_LOAD_README}'
+        )
+    elif has_settings_flag:
+        tip = (
+            "Tip: fix the error above, then run the scan again. "
+            'If problems persist, see README '
+            f'"When Django settings fail to load": {_SETTINGS_LOAD_README}'
+        )
+
+    use_rich = _stream_allows_style(
+        sys.stderr, force=force_color, no_color_flag=no_color
+    )
+    if not use_rich:
+        chunks: list[str] = [summary]
+        if detail_lines:
+            chunks.append("\n".join(detail_lines))
+        if tip:
+            chunks.append(tip)
+        print("\n\n".join(chunks), file=sys.stderr)
+        return
+
+    from rich.console import Console, Group
+    from rich.panel import Panel
+    from rich.text import Text
+
+    width = max(60, min(100, shutil.get_terminal_size((100, 24)).columns))
+    try:
+        stderr_tty = sys.stderr.isatty()
+    except (AttributeError, ValueError):
+        stderr_tty = False
+    console = Console(
+        file=sys.stderr,
+        width=width,
+        soft_wrap=True,
+        highlight=False,
+        force_terminal=force_color or not stderr_tty,
+        legacy_windows=False,
+    )
+
+    body_items: list[Any] = [Text(summary, style="white")]
+    for line in detail_lines:
+        body_items.append(Text(line, style="dim"))
+    if tip:
+        body_items.append(Text(""))
+        tip_line = Text()
+        tip_line.append("> ", style="bold cyan")
+        tip_line.append(tip, style="cyan")
+        body_items.append(tip_line)
+
+    console.print(
+        Panel(
+            Group(*body_items),
+            title="[bold yellow]Settings[/bold yellow] [dim]|[/dim] [bold white]not loaded[/bold white]",
+            title_align="left",
+            border_style="yellow",
+            box=_cli_panel_box(),
+            padding=(0, 1),
+        )
+    )
+    console.print()
 
 
 def _render_rich_report(console: Any, report: Report) -> None:
@@ -42,11 +162,12 @@ def _render_rich_report(console: Any, report: Report) -> None:
     title.append("django_security_hunter report ", style="bold cyan")
     title.append(f"({report.mode})", style="bold white")
 
-    subtitle = f"{report.generated_at} · {len(report.findings)} finding(s)"
+    subtitle = f"{report.generated_at} - {len(report.findings)} finding(s)"
     console.print(
         Panel(
             Group(title, Text(subtitle, style="dim")),
             border_style="cyan",
+            box=_cli_panel_box(),
             padding=(0, 1),
         )
     )
@@ -56,7 +177,14 @@ def _render_rich_report(console: Any, report: Report) -> None:
 
     findings = report.sorted_findings()
     if not findings:
-        console.print(Text("No findings.", style="bold green"))
+        console.print(
+            Panel(
+                Text("No findings - nothing flagged in this run.", style="bold green"),
+                border_style="green",
+                box=_cli_panel_box(),
+                padding=(0, 1),
+            )
+        )
         return
 
     for i, finding in enumerate(findings):
@@ -64,22 +192,30 @@ def _render_rich_report(console: Any, report: Report) -> None:
             console.print()
         st = _severity_style(finding.severity)
         header = Text()
-        header.append(f"{finding.severity} ", style=st)
+        header.append(f"{finding.severity}", style=st)
+        header.append(" | ", style="dim")
         header.append(f"{finding.rule_id}", style="bold white")
-        header.append(f" · {finding.title}", style="white")
+        header.append(f" - {finding.title}", style="white")
         body: list[Text | str] = [header, Text(finding.message)]
         if finding.path:
             loc_bits = finding.path
             if finding.line is not None:
                 loc_bits = f"{finding.path}:{finding.line}"
-            body.append(Text(loc_bits, style="dim"))
+            loc = Text()
+            loc.append("@ ", style="dim")
+            loc.append(loc_bits, style="dim cyan")
+            body.append(loc)
         if finding.fix_hint:
-            body.append(Text(f"Fix: {finding.fix_hint}", style="dim italic"))
+            fix = Text()
+            fix.append("Fix: ", style="bold dim")
+            fix.append(finding.fix_hint.strip(), style="dim italic")
+            body.append(fix)
         border = st.split()[-1]
         console.print(
             Panel(
                 Group(*body),
                 border_style=border,
+                box=_cli_panel_box(),
                 padding=(0, 1),
             )
         )
@@ -96,8 +232,8 @@ def _print_profile_summary_rich(console: Any, report: Report) -> None:
     lines: list[Text | str] = [
         Text("Runtime query profile", style="bold cyan"),
         Text(
-            f"runner={prof.get('query_runtime', '?')} · "
-            f"tests_profiled={prof.get('tests_profiled', 0)} · "
+            f"runner={prof.get('query_runtime', '?')} ; "
+            f"tests_profiled={prof.get('tests_profiled', 0)} ; "
             f"thresholds: queries>{prof.get('threshold_query_count', '?')}, "
             f"time>{prof.get('threshold_db_time_ms', '?')}ms",
             style="dim",
@@ -109,7 +245,7 @@ def _print_profile_summary_rich(console: Any, report: Report) -> None:
         for row in tops[:5]:
             lines.append(
                 Text(
-                    f"  · {row.get('nodeid', '?')}: {row.get('query_count', 0)} queries",
+                    f"  * {row.get('nodeid', '?')}: {row.get('query_count', 0)} queries",
                     style="white",
                 )
             )
@@ -119,7 +255,7 @@ def _print_profile_summary_rich(console: Any, report: Report) -> None:
         for row in slow[:5]:
             lines.append(
                 Text(
-                    f"  · {row.get('nodeid', '?')}: {row.get('sql_time_ms', 0):.1f} ms",
+                    f"  * {row.get('nodeid', '?')}: {row.get('sql_time_ms', 0):.1f} ms",
                     style="white",
                 )
             )
@@ -130,11 +266,18 @@ def _print_profile_summary_rich(console: Any, report: Report) -> None:
             sig = str(row.get("signature", ""))[:120]
             lines.append(
                 Text(
-                    f"  · {row.get('repeat_count', 0)}x @ {row.get('nodeid', '?')}: {sig}",
+                    f"  * {row.get('repeat_count', 0)}x @ {row.get('nodeid', '?')}: {sig}",
                     style="yellow",
                 )
             )
-    console.print(Panel(Group(*lines), border_style="blue", padding=(0, 1)))
+    console.print(
+        Panel(
+            Group(*lines),
+            border_style="blue",
+            box=_cli_panel_box(),
+            padding=(0, 1),
+        )
+    )
 
 
 def print_console_report(report: Report, *, file: TextIO | None = None) -> None:
@@ -154,6 +297,7 @@ def print_console_report(report: Report, *, file: TextIO | None = None) -> None:
         soft_wrap=True,
         highlight=False,
         force_terminal=not is_tty,
+        legacy_windows=False,
     )
     _render_rich_report(console, report)
 

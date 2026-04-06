@@ -27,15 +27,30 @@ _SENSITIVE_SERIALIZER_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-_SENSITIVE_LOG_SNIPPETS = (
-    "password",
-    "passwd",
-    "secret",
-    "token",
-    "api_key",
-    "apikey",
-    "authorization:",
-    "bearer ",
+# DJG073: log *template* strings that mention credentials. Use boundary-aware
+# patterns (not bare substrings) and allow known-safe operational phrasing to cut FPs.
+_DJG073_SAFE_MESSAGE_RE = re.compile(
+    r"(?i)(?:"
+    r"password\s+reset|reset\s+password|forgot\s+password|reset\s+email|password\s+reset\s+email|"
+    r"denying\s+token|"
+    r"registered\s+(?:refresh|access)[-\s]token|"
+    r"set\s+[A-Z][A-Z0-9_]*_API_URL\b|"
+    r"(?:refresh|access)[-\s]token.{0,160}?"
+    r"(?:blacklist|redis|issuance|cleanup|invalid|unavail|fail|init|register|removed|denying|expired)|"
+    r"(?:blacklist|redis|cleanup\s+scan).{0,120}?(?:refresh|access)[-\s]token"
+    r")",
+)
+
+_DJG073_SENSITIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bpassword\b|\bpasswd\b", re.I),
+    re.compile(r"\bsecret\b", re.I),
+    re.compile(r"\btoken\b", re.I),
+    re.compile(r"\bapi[_-]?key\b|\bapikey\b", re.I),
+    re.compile(r"authorization\s*:", re.I),
+    # Opaque-looking value after Bearer (skip "bearer authentication …" phrasing).
+    re.compile(
+        r"\bbearer\s+(?!authentication\b)[A-Za-z0-9+/=_-]{8,}", re.I
+    ),
 )
 
 
@@ -363,16 +378,18 @@ class _StaticVisitor(ast.NodeVisitor):
         text = self._string_preview(node.args[0])
         if not text:
             return
-        low = text.lower()
-        if any(s in low for s in _SENSITIVE_LOG_SNIPPETS):
-            self._add(
-                "DJG073",
-                "HIGH",
-                "Possible sensitive data in log message",
-                f"Log call may emit sensitive keywords in: {text[:120]!r}...",
-                "Redact secrets; never log passwords, tokens, or raw Authorization headers.\n",
-                node.lineno,
-            )
+        if _DJG073_SAFE_MESSAGE_RE.search(text):
+            return
+        if not any(p.search(text) for p in _DJG073_SENSITIVE_PATTERNS):
+            return
+        self._add(
+            "DJG073",
+            "HIGH",
+            "Possible sensitive data in log message",
+            f"Log call may emit sensitive keywords in: {text[:120]!r}...",
+            "Redact secrets; never log passwords, tokens, or raw Authorization headers.\n",
+            node.lineno,
+        )
 
     @staticmethod
     def _string_preview(node: ast.expr) -> str:

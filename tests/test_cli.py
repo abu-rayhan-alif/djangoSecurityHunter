@@ -41,7 +41,10 @@ def test_scan_console_force_color_uses_rich_layout(tmp_path: Path) -> None:
     # Rich inserts ANSI between styled spans; full phrase is not one substring.
     plain = _strip_ansi(result.stdout)
     assert "django_security_hunter report (scan)" in plain
-    assert "╭" in result.stdout or "─" in result.stdout
+    # Rich layout: Unicode rounded panels or ASCII box (+---) on legacy Windows consoles.
+    assert "╭" in result.stdout or "─" in result.stdout or (
+        "+" in plain and "|" in plain
+    )
 
 
 def test_scan_json_runs(tmp_path: Path) -> None:

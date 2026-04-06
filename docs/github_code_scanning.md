@@ -1,6 +1,6 @@
 # GitHub Code Scanning & PR annotations
 
-`djangoguard` does **not** post inline PR comments by itself. Instead, upload **SARIF** output to **GitHub Code Scanning**; GitHub will show findings on the **Security** tab and attach checks to **pull requests** when Code Scanning is enabled for the repository.
+`django_security_hunter` does **not** post inline PR comments by itself. Instead, upload **SARIF** output to **GitHub Code Scanning**; GitHub will show findings on the **Security** tab and attach checks to **pull requests** when Code Scanning is enabled for the repository.
 
 ## Enable Code Scanning
 
@@ -13,12 +13,12 @@
 - name: Scan
   run: |
     mkdir -p reports
-    djangoguard scan --project . --format sarif --output reports/djangoguard.sarif
+    django_security_hunter scan --project . --format sarif --output reports/django_security_hunter.sarif
 
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v4
   with:
-    sarif_file: reports/djangoguard.sarif
+    sarif_file: reports/django_security_hunter.sarif
 ```
 
 Use `continue-on-error: true` on the upload step if Code Scanning is not yet enabled (keeps CI green).
