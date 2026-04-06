@@ -36,7 +36,8 @@ _DJG073_SAFE_MESSAGE_RE = re.compile(
     r"registered\s+(?:refresh|access)[-\s]token|"
     r"set\s+[A-Z][A-Z0-9_]*_API_URL\b|"
     r"(?:refresh|access)[-\s]token.{0,160}?"
-    r"(?:blacklist|redis|issuance|cleanup|invalid|unavail|fail|init|register|removed|denying|expired)|"
+    r"(?:blacklist|redis|issuance|cleanup|invalid|unavail|fail|init|register|"
+    r"removed|denying|expired)|"
     r"(?:blacklist|redis|cleanup\s+scan).{0,120}?(?:refresh|access)[-\s]token"
     r")",
 )

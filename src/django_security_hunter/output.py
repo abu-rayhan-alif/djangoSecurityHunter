@@ -140,10 +140,14 @@ def print_django_settings_load_warning(
         tip_line.append(tip, style="cyan")
         body_items.append(tip_line)
 
+    _panel_title = (
+        "[bold yellow]Settings[/bold yellow] [dim]|[/dim] "
+        "[bold white]not loaded[/bold white]"
+    )
     console.print(
         Panel(
             Group(*body_items),
-            title="[bold yellow]Settings[/bold yellow] [dim]|[/dim] [bold white]not loaded[/bold white]",
+            title=_panel_title,
             title_align="left",
             border_style="yellow",
             box=_cli_panel_box(),
