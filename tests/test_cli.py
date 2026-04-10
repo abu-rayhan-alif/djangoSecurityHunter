@@ -115,7 +115,7 @@ def test_profile_requires_gate(tmp_path: Path) -> None:
     assert result.exit_code == 2
     assert "Safety gate" in (result.stdout + (result.stderr or ""))
 
-# test_scan_rejects_invalid_threshold
+
 def test_scan_rejects_invalid_threshold(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
