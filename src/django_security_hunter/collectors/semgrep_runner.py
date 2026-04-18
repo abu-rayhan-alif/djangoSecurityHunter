@@ -32,7 +32,7 @@ def _semgrep_config_token_ok(token: str) -> bool:
 
 
 def resolved_semgrep_configs_from_env() -> list[str]:
-    """Comma-split ``DJANGOGUARD_SEMGREP_CONFIGS`` into safe ``--config`` values (shared with rules)."""
+    """Split ``DJANGOGUARD_SEMGREP_CONFIGS`` into safe Semgrep ``--config`` values."""
     raw = os.environ.get("DJANGOGUARD_SEMGREP_CONFIGS", _DEFAULT_SEMGREP_CONFIGS)
     out: list[str] = []
     for part in raw.split(","):

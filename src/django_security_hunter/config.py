@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def env_tri_bool(cfg_value: bool, env_key: str) -> bool:
-    """If *env_key* is a truthy on/off token, it wins; otherwise use *cfg_value* (README env toggles)."""
+    """Env on/off wins when set; otherwise use *cfg_value* (README integration toggles)."""
     raw = os.environ.get(env_key, "").strip().lower()
     if raw in {"0", "false", "no", "off"}:
         return False
@@ -177,7 +177,8 @@ def load_config(project_root: Path) -> GuardConfig:
         ),
     )
     logger.debug(
-        "Loaded GuardConfig for %s (severity_threshold=%s, pip_audit=%s, bandit=%s, semgrep=%s, enable_scan_plugins=%s)",
+        "Loaded GuardConfig for %s (severity_threshold=%s, pip_audit=%s, "
+        "bandit=%s, semgrep=%s, enable_scan_plugins=%s)",
         root,
         cfg.severity_threshold,
         cfg.pip_audit,

@@ -34,7 +34,7 @@ class ScanPlugin(Protocol):
 
 
 def scan_plugins_enabled(cfg: GuardConfig) -> bool:
-    """Respect ``enable_scan_plugins`` in TOML unless ``DJANGO_SECURITY_HUNTER_PLUGINS`` overrides."""
+    """TOML ``enable_scan_plugins`` unless ``DJANGO_SECURITY_HUNTER_PLUGINS`` overrides."""
     raw = os.environ.get("DJANGO_SECURITY_HUNTER_PLUGINS", "").strip().lower()
     if raw in ("0", "false", "no", "off"):
         return False

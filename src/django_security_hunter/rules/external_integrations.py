@@ -8,6 +8,7 @@ from typing import Any
 
 from django_security_hunter.collectors import bandit_runner, pip_audit_runner, semgrep_runner
 from django_security_hunter.config import GuardConfig, env_tri_bool
+from django_security_hunter.models import Finding
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,8 @@ from django_security_hunter.models import Finding
 
 def _finding_by_rule(findings: list[Finding], rule_id: str) -> Finding:
     matches = [f for f in findings if f.rule_id == rule_id]
-    assert len(matches) >= 1, f"expected at least one {rule_id}, got {[f.rule_id for f in findings]}"
+    got = [f.rule_id for f in findings]
+    assert len(matches) >= 1, f"expected at least one {rule_id}, got {got}"
     return matches[0]
 
 
