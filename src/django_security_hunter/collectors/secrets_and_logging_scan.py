@@ -4,9 +4,9 @@ import ast
 import re
 from pathlib import Path
 
-from django_security_hunter.collectors.drf_static_scan import (
-    _iter_project_glob,
-    _read_py_source,
+from django_security_hunter.collectors.project_files import (
+    iter_project_glob,
+    read_py_source,
 )
 
 # Heuristic scans: skip test trees and fixture dirs to cut false positives (sample secrets).
@@ -176,10 +176,10 @@ def _scan_string_constants(tree: ast.AST) -> list[tuple[int, str, str]]:
 def scan_sensitive_logging_hits(project_root: Path) -> list[tuple[str, int, str]]:
     """(file, line, kind) for DJG073."""
     hits: list[tuple[str, int, str]] = []
-    for py_path in _iter_project_glob(project_root, "*.py"):
+    for py_path in iter_project_glob(project_root, "*.py"):
         if _skip_secrets_scan_path(py_path):
             continue
-        source = _read_py_source(py_path)
+        source = read_py_source(py_path)
         if source is None:
             continue
         try:
@@ -200,10 +200,10 @@ def scan_hardcoded_secret_hits(
 ) -> list[tuple[str, int, str, str]]:
     """(file, line, severity, kind) for DJG074."""
     hits: list[tuple[str, int, str, str]] = []
-    for py_path in _iter_project_glob(project_root, "*.py"):
+    for py_path in iter_project_glob(project_root, "*.py"):
         if _skip_secrets_scan_path(py_path):
             continue
-        source = _read_py_source(py_path)
+        source = read_py_source(py_path)
         if source is None:
             continue
         try:

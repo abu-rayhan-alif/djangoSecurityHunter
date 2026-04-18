@@ -4,9 +4,9 @@ import ast
 import re
 from pathlib import Path
 
-from django_security_hunter.collectors.drf_static_scan import (
-    _iter_project_glob,
-    _read_py_source,
+from django_security_hunter.collectors.project_files import (
+    iter_project_glob,
+    read_py_source,
 )
 
 _RE_TEMPLATE_SAFE = re.compile(r"\|\s*safe\b")
@@ -25,10 +25,10 @@ def scan_xss_risk_hits(project_root: Path) -> list[tuple[str, int, str, str]]:
     """(file, 1-based line, kind id, short label) for XSS-risk heuristics."""
     hits: list[tuple[str, int, str, str]] = []
 
-    for py_path in _iter_project_glob(project_root, "*.py"):
+    for py_path in iter_project_glob(project_root, "*.py"):
         if "migrations" in py_path.parts:
             continue
-        source = _read_py_source(py_path)
+        source = read_py_source(py_path)
         if source is None:
             continue
         try:
@@ -51,8 +51,8 @@ def scan_xss_risk_hits(project_root: Path) -> list[tuple[str, int, str, str]]:
             )
 
     for pattern in ("*.html", "*.htm", "*.djhtml"):
-        for tpl_path in _iter_project_glob(project_root, pattern):
-            text = _read_py_source(tpl_path)
+        for tpl_path in iter_project_glob(project_root, pattern):
+            text = read_py_source(tpl_path)
             if text is None:
                 continue
             for lineno, line in enumerate(text.splitlines(), start=1):

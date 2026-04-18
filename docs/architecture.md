@@ -25,7 +25,7 @@ This document explains the current architecture of `django_security_hunter` and 
 3. **Engine Layer** (`src/django_security_hunter/engine.py`)
    - Owns execution flow for `scan` and `profile`
    - Builds report metadata
-   - Executes registered rules (current skeleton returns empty findings)
+   - Runs built-in rule modules, optional external scanners, then **scan plugins** (entry points)
 
 4. **Domain Model Layer** (`src/django_security_hunter/models.py`)
    - Defines `Finding` schema and `Report` aggregate
@@ -156,29 +156,38 @@ For V1 implementation, the engine can evolve to this structure:
    - Severity normalization
    - Final sorting
 
-## Future Plugin Design (Proposed)
+## Scan plugins (entry points)
 
-To support external rule packs and optional integrations:
+Third-party packages can extend `scan` **without forking** by registering a callable under the
+`importlib.metadata` group **`django_security_hunter.scan_plugins`**.
 
-### Plugin Interface
+### Registration (consumer project)
 
-Each plugin provides:
-- plugin ID and version
-- list of rule definitions
-- optional config schema
-- engine compatibility version
+In the plugin distribution’s `pyproject.toml`:
 
-### Discovery Options
+```toml
+[project.entry-points."django_security_hunter.scan_plugins"]
+my_rules = "my_package.plugin:run_scan"
+```
 
-1. Python entry points (`django_security_hunter.rules`)
-2. Explicit local path loading from config
-3. Built-in + external hybrid registry
+The callable must be importable and have this shape:
 
-### Safety Rules
+- **Arguments:** `(project_root: Path, cfg: GuardConfig, django_settings_context: Mapping[str, Any])`
+- **Returns:** iterable of `Finding` (same model as built-in rules)
 
-- Plugins should run in-process with strict exception boundaries
-- Rule exceptions should not crash the full scan
-- Plugin failures should produce diagnostics in metadata
+Plugins run **after** built-in rules and external integrations (Bandit / Semgrep / pip-audit from config).
+Each plugin is isolated: load failures and exceptions are recorded under `metadata["scan_plugins"]`
+and do not abort the scan.
+
+### Disabling plugins
+
+- Config: `[tool.django_security_hunter] enable_scan_plugins = false`
+- Environment: `DJANGO_SECURITY_HUNTER_PLUGINS=0` (or `false` / `no` / `off`)
+
+### Optional follow-ups
+
+- Explicit local path loading from config (not implemented)
+- Richer plugin metadata (version pins, config schema) — evolve as needed
 
 ## Testing Strategy
 
@@ -215,8 +224,8 @@ Each plugin provides:
 ## Current State
 
 Current repository status:
-- CLI, config loading, report schema, and writers are implemented
-- Engine is scaffolded and ready for rule integration
+- CLI, config loading, report schema, and output formatting (console / JSON / SARIF in ``output.py``) are implemented
+- Engine runs the full built-in rule pipeline, optional external scanners, and optional **scan plugins**
 - CI, Docker, tests, and documentation baseline are in place
 
 This allows incremental ticket-by-ticket implementation while preserving stable public interfaces.

@@ -3,9 +3,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from django_security_hunter.collectors.drf_static_scan import (
-    _iter_project_glob,
-    _read_py_source,
+from django_security_hunter.collectors.project_files import (
+    iter_project_glob,
+    read_py_source,
 )
 
 _SAFE_LOADER_ATTRS = frozenset({"SafeLoader", "CSafeLoader"})
@@ -67,10 +67,10 @@ def scan_insecure_deserialization_hits(
     """(file, line, kind id, label) for insecure deserialization patterns."""
     hits: list[tuple[str, int, str, str]] = []
 
-    for py_path in _iter_project_glob(project_root, "*.py"):
+    for py_path in iter_project_glob(project_root, "*.py"):
         if "migrations" in py_path.parts:
             continue
-        source = _read_py_source(py_path)
+        source = read_py_source(py_path)
         if source is None:
             continue
         try:

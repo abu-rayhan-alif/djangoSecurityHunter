@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 import io
+import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 import tomllib
 
 from .limits import MAX_TOML_CONFIG_BYTES
 from .models import VALID_SEVERITY_THRESHOLDS
+
+logger = logging.getLogger(__name__)
+
+
+def env_tri_bool(cfg_value: bool, env_key: str) -> bool:
+    """If *env_key* is a truthy on/off token, it wins; otherwise use *cfg_value* (README env toggles)."""
+    raw = os.environ.get(env_key, "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    return cfg_value
 
 
 def _str_frozenset(value: object) -> frozenset[str]:
@@ -28,6 +42,7 @@ class GuardConfig:
     pip_audit: bool = False
     bandit: bool = False
     semgrep: bool = False
+    enable_scan_plugins: bool = True
     score_weight_info: int = 1
     score_weight_warn: int = 5
     score_weight_high: int = 15
@@ -64,17 +79,25 @@ def _safe_bool(value: object, default: bool = False) -> bool:
 
 def _read_toml(path: Path) -> dict:
     if not path.exists():
+        logger.debug("No TOML config at %s (defaults apply)", path)
         return {}
     try:
         with path.open("rb") as f:
             data = f.read(MAX_TOML_CONFIG_BYTES + 1)
-    except OSError:
+    except OSError as exc:
+        logger.warning("Could not read config file %s: %s", path, exc)
         return {}
     if len(data) > MAX_TOML_CONFIG_BYTES:
+        logger.warning(
+            "Config file %s exceeds %s bytes; ignoring",
+            path,
+            MAX_TOML_CONFIG_BYTES,
+        )
         return {}
     try:
         return tomllib.load(io.BytesIO(data))
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
+        logger.warning("Invalid TOML in %s: %s", path, exc)
         return {}
 
 
@@ -92,9 +115,10 @@ def _bool_from_config(
 
 
 def load_config(project_root: Path) -> GuardConfig:
-    pyproject = _read_toml(project_root / "pyproject.toml")
-    local_legacy = _read_toml(project_root / "django_security_hunter.toml")
-    local_dg = _read_toml(project_root / "djangoguard.toml")
+    root = project_root.resolve()
+    pyproject = _read_toml(root / "pyproject.toml")
+    local_legacy = _read_toml(root / "django_security_hunter.toml")
+    local_dg = _read_toml(root / "djangoguard.toml")
 
     config_data: dict = {}
     if "tool" in pyproject:
@@ -108,13 +132,17 @@ def load_config(project_root: Path) -> GuardConfig:
 
     sev = str(config_data.get("severity_threshold", "WARN")).strip().upper()
     if sev not in VALID_SEVERITY_THRESHOLDS:
+        logger.warning(
+            "Invalid severity_threshold %r; falling back to WARN",
+            config_data.get("severity_threshold"),
+        )
         sev = "WARN"
 
     high_saves = _safe_int(config_data.get("djg051_high_save_threshold", 3), 3)
     if high_saves < 2:
         high_saves = 3
 
-    return GuardConfig(
+    cfg = GuardConfig(
         severity_threshold=sev,
         query_count_threshold=_safe_int(
             config_data.get("query_count_threshold", 50), 50
@@ -138,6 +166,9 @@ def load_config(project_root: Path) -> GuardConfig:
         semgrep=_bool_from_config(
             config_data, "semgrep", "enable_semgrep", False
         ),
+        enable_scan_plugins=_safe_bool(
+            config_data.get("enable_scan_plugins", True), True
+        ),
         score_weight_info=_safe_int(config_data.get("score_weight_info", 1), 1),
         score_weight_warn=_safe_int(config_data.get("score_weight_warn", 5), 5),
         score_weight_high=_safe_int(config_data.get("score_weight_high", 15), 15),
@@ -145,3 +176,13 @@ def load_config(project_root: Path) -> GuardConfig:
             config_data.get("score_weight_critical", 40), 40
         ),
     )
+    logger.debug(
+        "Loaded GuardConfig for %s (severity_threshold=%s, pip_audit=%s, bandit=%s, semgrep=%s, enable_scan_plugins=%s)",
+        root,
+        cfg.severity_threshold,
+        cfg.pip_audit,
+        cfg.bandit,
+        cfg.semgrep,
+        cfg.enable_scan_plugins,
+    )
+    return cfg

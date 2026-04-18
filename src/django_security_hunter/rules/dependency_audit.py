@@ -1,27 +1,24 @@
 from __future__ import annotations
 
 import json
-import os
+import logging
 import re
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
 
-from django_security_hunter.config import GuardConfig
+from django_security_hunter.config import GuardConfig, env_tri_bool
 from django_security_hunter.models import Finding
+
+logger = logging.getLogger(__name__)
 
 _MAX_FINDINGS = 40
 
 
 def _pip_audit_should_run(cfg: GuardConfig) -> bool:
     """Env overrides TOML: explicit off wins; explicit on wins; else ``cfg.pip_audit``."""
-    raw = os.environ.get("DJANGO_SECURITY_HUNTER_PIP_AUDIT", "").strip().lower()
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    if raw in {"1", "true", "yes", "on"}:
-        return True
-    return cfg.pip_audit
+    return env_tri_bool(cfg.pip_audit, "DJANGO_SECURITY_HUNTER_PIP_AUDIT")
 
 
 def _parse_cvss_score_fragment(s: str) -> float:
@@ -59,7 +56,9 @@ def _vuln_severity(vuln: Any) -> str:
         val = vuln.get(key)
         if val is not None:
             try:
-                best = max(best, float(val))
+                v = float(val)
+                if 0.0 <= v <= 10.0:
+                    best = max(best, v)
             except (TypeError, ValueError):
                 pass
 
@@ -83,6 +82,9 @@ def run_dependency_audit_rules(
     if not _pip_audit_should_run(cfg):
         return []
     root = project_root.resolve()
+    logger.debug(
+        "Running pip-audit for dependency audit rules (DJG060) in %s", root
+    )
     try:
         proc = subprocess.run(  # nosec B603
             [
@@ -100,14 +102,19 @@ def run_dependency_audit_rules(
             timeout=180,
             check=False,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("pip-audit subprocess failed in dependency_audit: %s", exc)
         return []
     raw = (proc.stdout or "").strip()
     if not raw:
+        logger.debug(
+            "pip-audit returned empty stdout (exit_code=%s)", proc.returncode
+        )
         return []
     try:
         data: Any = json.loads(raw)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        logger.warning("pip-audit JSON parse failed in dependency_audit: %s", exc)
         return []
     rows: list[Any]
     if isinstance(data, list):
@@ -115,8 +122,16 @@ def run_dependency_audit_rules(
     elif isinstance(data, dict):
         rows = data.get("dependencies") or data.get("packages") or []
     else:
+        logger.warning(
+            "pip-audit JSON root has unexpected type %s in dependency_audit; skipping",
+            type(data).__name__,
+        )
         return []
     if not isinstance(rows, list):
+        logger.warning(
+            "pip-audit dependency rows are not a list (got %s); skipping dependency_audit mapping",
+            type(rows).__name__,
+        )
         return []
     findings: list[Finding] = []
     for row in rows:

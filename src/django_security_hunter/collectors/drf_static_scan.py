@@ -3,43 +3,11 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
-from typing import Iterable
 
-# Per-file cap to limit memory use on pathological huge .py files (DoS hardening).
-_MAX_PY_SOURCE_BYTES = 2 * 1024 * 1024  # 2 MiB
-
-
-def _read_py_source(path: Path) -> str | None:
-    """Read UTF-8 Python source, or None if missing, oversized, or invalid UTF-8."""
-    try:
-        with path.open("rb") as f:
-            data = f.read(_MAX_PY_SOURCE_BYTES + 1)
-    except OSError:
-        return None
-    if len(data) > _MAX_PY_SOURCE_BYTES:
-        return None
-    try:
-        return data.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-
-
-_SKIP_DIR_NAMES = frozenset(
-    {
-        ".git",
-        ".hg",
-        ".svn",
-        "__pycache__",
-        ".venv",
-        "venv",
-        "node_modules",
-        ".eggs",
-        ".tox",
-        "dist",
-        "build",
-        ".mypy_cache",
-        ".pytest_cache",
-    }
+from django_security_hunter.collectors.project_files import (
+    iter_project_glob,
+    iter_project_py_skip_migrations,
+    read_py_source,
 )
 
 
@@ -77,36 +45,11 @@ _SENSITIVE_WARN = re.compile(
 )
 
 
-def _iter_project_glob(project_root: Path, pattern: str) -> Iterable[Path]:
-    """Yield files matching ``pattern`` under project_root (symlink-safe, skips junk dirs)."""
-    root = project_root.resolve()
-    for p in root.rglob(pattern):
-        try:
-            resolved = p.resolve()
-        except OSError:
-            continue
-        try:
-            if not resolved.is_relative_to(root):
-                continue
-        except ValueError:
-            continue
-        if "site-packages" in resolved.parts:
-            continue
-        if any(part in _SKIP_DIR_NAMES for part in resolved.parts):
-            continue
-        yield resolved
-
-
-def _iter_project_py_files(project_root: Path) -> Iterable[Path]:
-    """Yield *.py files under project_root only (resolved paths; skips symlink escapes)."""
-    yield from _iter_project_glob(project_root, "*.py")
-
-
 def scan_auth_like_url_hits(project_root: Path) -> list[tuple[str, int, str]]:
     """(file path, 1-based line, stripped line) for auth-like URL registrations."""
     hits: list[tuple[str, int, str]] = []
-    for py_path in _iter_project_py_files(project_root):
-        text = _read_py_source(py_path)
+    for py_path in iter_project_glob(project_root, "*.py"):
+        text = read_py_source(py_path)
         if text is None:
             continue
         for lineno, line in enumerate(text.splitlines(), start=1):
@@ -160,10 +103,8 @@ def scan_serializers_fields_all_sensitive(
 ) -> list[tuple[str, int, str, str, str]]:
     """file, line, class_name, model_hint, severity (HIGH|WARN)."""
     results: list[tuple[str, int, str, str, str]] = []
-    for py_path in _iter_project_py_files(project_root):
-        if "migrations" in py_path.parts:
-            continue
-        source = _read_py_source(py_path)
+    for py_path in iter_project_py_skip_migrations(project_root):
+        source = read_py_source(py_path)
         if source is None:
             continue
         try:
@@ -256,10 +197,8 @@ def scan_drf_list_endpoint_hits(
 ) -> list[tuple[str, int, str, str]]:
     """file, 1-based line, class_or_router, kind (MODEL_VIEWSET|...|ROUTER_REGISTER)."""
     hits: list[tuple[str, int, str, str]] = []
-    for py_path in _iter_project_py_files(project_root):
-        if "migrations" in py_path.parts:
-            continue
-        text = _read_py_source(py_path)
+    for py_path in iter_project_py_skip_migrations(project_root):
+        text = read_py_source(py_path)
         if text is None:
             continue
         resolved = str(py_path)

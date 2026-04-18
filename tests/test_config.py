@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from django_security_hunter.config import GuardConfig, _safe_int, load_config
+import pytest
+
+from django_security_hunter.config import GuardConfig, _safe_int, env_tri_bool, load_config
+
+
+def test_env_tri_bool_on_off_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DJANGOGUARD_TEST_FLAG", raising=False)
+    assert env_tri_bool(False, "DJANGOGUARD_TEST_FLAG") is False
+    assert env_tri_bool(True, "DJANGOGUARD_TEST_FLAG") is True
+    monkeypatch.setenv("DJANGOGUARD_TEST_FLAG", "1")
+    assert env_tri_bool(False, "DJANGOGUARD_TEST_FLAG") is True
+    monkeypatch.setenv("DJANGOGUARD_TEST_FLAG", "off")
+    assert env_tri_bool(True, "DJANGOGUARD_TEST_FLAG") is False
 
 
 def test_safe_int_valid() -> None:

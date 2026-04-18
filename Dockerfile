@@ -10,8 +10,11 @@ COPY src ./src
 
 RUN pip install --no-cache-dir -e .
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # ENTRYPOINT allows GitHub Actions `args` (and `docker run ... scan ...`) to append
 # subcommands after the executable instead of replacing the full command line.
-ENTRYPOINT ["django_security_hunter"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["scan", "--project", "/app", "--format", "console"]
 

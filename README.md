@@ -157,7 +157,7 @@ That is **not a crash** — it means Django refused to finish booting, so those 
 2. **Allow imports**  
    Keep **`--allow-project-code`** (`-y`) when using `--settings` (see [Install and run](#install-and-run)).
 
-1. **Set a non-empty `SECRET_KEY` in the environment** before scanning — match whatever your settings module reads (common names: `DJANGO_SECRET_KEY`, `SECRET_KEY`). Use a disposable value for local or CI scans only; do not commit real production secrets.
+3. **Set a non-empty `SECRET_KEY` in the environment** before scanning — match whatever your settings module reads (common names: `DJANGO_SECRET_KEY`, `SECRET_KEY`). Use a disposable value for local or CI scans only; do not commit real production secrets.
 
    **bash / macOS / Linux**
 
@@ -181,7 +181,7 @@ That is **not a crash** — it means Django refused to finish booting, so those 
 
 #### Still stuck?
 
-4. **Optional:** add a small **`settings_ci.py`** (or similar) used only for scans/CI with a long placeholder `SECRET_KEY`, and pass `--settings yourproject.settings_ci`.
+Double-check `PYTHONPATH` / project layout if the settings module imports app packages, and that you are scanning from the same directory you use for `manage.py`.
 
 PyPI **Project links** (Homepage, Source, Issues, Documentation, Changelog) come from `[project.urls]` in `pyproject.toml` and point at this repo so you can **star**, **fork**, or **open PRs** on GitHub.
 
@@ -397,7 +397,7 @@ django_security_hunter profile --project . --settings mysite.settings --allow-pr
 Short form:
 
 ```bash
-django_security_hunter scan -p . -s mysite.settings -y -f console
+django_security_hunter profile -p . -s mysite.settings -y -f console
 ```
 
 ### `django_security_hunter init`
@@ -411,12 +411,13 @@ Creates **`djangoguard.toml`** with defaults (skipped if `djangoguard.toml` or l
 | `DJANGO_SECURITY_HUNTER_PIP_AUDIT` | `1`/`true`/`on` runs pip-audit (**DJG060**); `0`/`false`/`off` forces off |
 | `DJANGOGUARD_BANDIT` | Same pattern for Bandit (**DJG061**); needs `bandit` installed |
 | `DJANGOGUARD_SEMGREP` | Same for Semgrep (**DJG062**); needs `semgrep` on `PATH` |
-| `DJANGOGUARD_SEMGREP_CONFIGS` | Comma-separated Semgrep configs (default `p/python,p/django`) |
+| `DJANGOGUARD_SEMGREP_CONFIGS` | Comma-separated Semgrep `--config` values (default `p/python,p/django`); tokens starting with `-` or containing control characters are skipped (see logs) |
 | `DJANGOGUARD_SKIP_PYTEST_PROFILE` | `1` skips nested pytest in `profile` (e.g. this repo’s tests) |
 | `DJANGOGUARD_PROFILE_DJANGO_DB_ONLY` | `1` — only DJG040–042 for `@pytest.mark.django_db` tests |
 | `DJANGOGUARD_PROFILE_DJANGO_FALLBACK` | `1` — if pytest yields no rows, try Django `DiscoverRunner` |
+| `DJANGO_SECURITY_HUNTER_PLUGINS` | `0`/`off` disables third-party scan plugins (`importlib.metadata` entry points in group `django_security_hunter.scan_plugins`); `1`/`on` forces them on regardless of TOML `enable_scan_plugins` |
 
-If unset for pip-audit/Bandit/Semgrep, use `pip_audit` / `bandit` / `semgrep` in `djangoguard.toml` or `enable_*` aliases (see [Configuration](#configuration)).
+For **pip-audit, Bandit, and Semgrep**, setting the matching env var to **`1` / `true` / `on` or `0` / `false` / `off`** overrides TOML for that tool; if the env var is unset, use `pip_audit` / `bandit` / `semgrep` (or legacy `enable_*`) in `djangoguard.toml` / `pyproject.toml` ([Configuration](#configuration)).
 
 ## Configuration
 
@@ -436,6 +437,7 @@ db_time_ms_threshold = 200
 # pip_audit = true
 # bandit = true
 # semgrep = true
+# enable_scan_plugins = true
 # score_weight_info = 1
 # score_weight_warn = 5
 # score_weight_high = 15

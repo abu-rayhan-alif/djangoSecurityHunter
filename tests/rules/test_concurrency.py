@@ -30,6 +30,20 @@ def test_djg052_increment_without_f(tmp_path: Path) -> None:
     assert any(f.rule_id == "DJG052" for f in findings)
 
 
+def test_djg052_not_emitted_for_iterator_loop(tmp_path: Path) -> None:
+    """``.iterator()`` streams rows; do not apply queryset-terminal save() heuristics."""
+    p = tmp_path / "iter_save.py"
+    p.write_text(
+        "def go():\n"
+        "    for row in M.objects.filter(active=True).iterator():\n"
+        "        row.x = 1\n"
+        "        row.save()\n",
+        encoding="utf-8",
+    )
+    findings = list(run_concurrency_rules(tmp_path))
+    assert not any(f.rule_id == "DJG052" for f in findings)
+
+
 def test_djg052_save_in_loop_without_lock(tmp_path: Path) -> None:
     p = tmp_path / "loop_save.py"
     p.write_text(

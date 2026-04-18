@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+# When importlib.metadata is unavailable (editable run without install), match pyproject.
+_FALLBACK_PACKAGE_VERSION = "0.5.0"
+
 # Bump only when the JSON report shape changes incompatibly.
 REPORT_JSON_SCHEMA_VERSION = "django_security_hunter.report.v1"
 
@@ -15,4 +18,9 @@ def package_version() -> str:
 
         return version("django-security-hunter")
     except Exception:
-        return "0.1.0"
+        try:
+            from django_security_hunter import __version__
+
+            return str(__version__)
+        except Exception:
+            return _FALLBACK_PACKAGE_VERSION

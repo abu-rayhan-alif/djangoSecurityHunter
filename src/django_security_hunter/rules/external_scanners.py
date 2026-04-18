@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from django_security_hunter.collectors.semgrep_runner import resolved_semgrep_configs_from_env
 from django_security_hunter.config import GuardConfig
 from django_security_hunter.models import Finding
 
@@ -135,15 +136,7 @@ def run_semgrep_rules(project_root: Path, cfg: GuardConfig) -> list[Finding]:
     if not semgrep:
         return []
     root = project_root.resolve()
-    configs = [
-        x.strip()
-        for x in os.environ.get(
-            "DJANGOGUARD_SEMGREP_CONFIGS", "p/python,p/django"
-        ).split(",")
-        if x.strip()
-    ]
-    if not configs:
-        configs = ["p/python"]
+    configs = resolved_semgrep_configs_from_env()
     cmd: list[str] = [semgrep, "--json", "-q"]
     for c in configs:
         cmd.extend(["--config", c])

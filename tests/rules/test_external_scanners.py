@@ -30,6 +30,27 @@ def test_djg061_bandit_parses_json(tmp_path: Path, monkeypatch) -> None:
     assert findings[0].line == 3
 
 
+def test_semgrep_subprocess_drops_unsafe_config_tokens(tmp_path: Path, monkeypatch) -> None:
+    """``DJANGOGUARD_SEMGREP_CONFIGS`` must not smuggle extra argv (e.g. ``--help``)."""
+    monkeypatch.setenv("DJANGOGUARD_SEMGREP", "1")
+    monkeypatch.setenv("DJANGOGUARD_SEMGREP_CONFIGS", "p/python,--help,p/django")
+    payload = '{"results": []}'
+    with patch(
+        "django_security_hunter.rules.external_scanners.shutil.which",
+        return_value="/fake/semgrep",
+    ):
+        with patch(
+            "django_security_hunter.rules.external_scanners.subprocess.run"
+        ) as m:
+            m.return_value.stdout = payload
+            m.return_value.stderr = ""
+            run_semgrep_rules(tmp_path, GuardConfig())
+    cmd = m.call_args[0][0]
+    assert "--help" not in cmd
+    config_values = [cmd[i + 1] for i, x in enumerate(cmd) if x == "--config"]
+    assert config_values == ["p/python", "p/django"]
+
+
 def test_djg062_semgrep_parses_json(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("DJANGOGUARD_SEMGREP", "1")
     monkeypatch.setenv("PATH", "/bin")  # may not find semgrep

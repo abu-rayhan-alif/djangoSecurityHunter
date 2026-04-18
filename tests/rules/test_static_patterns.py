@@ -181,6 +181,31 @@ def test_djg073_finding_authorization_header_literal(tmp_path: Path) -> None:
     assert any(f.rule_id == "DJG073" for f in findings)
 
 
+def test_djg073_no_finding_comment_or_instructional_token_text(tmp_path: Path) -> None:
+    """Comment-style and doc-like ``token`` mentions should not match bare \\btoken\\b."""
+    p = tmp_path / "ok_tokens.py"
+    p.write_text(
+        'import logging\nlog = logging.getLogger("x")\n'
+        'log.info("# validate token format")\n'
+        'log.debug("check token format before save")\n'
+        'log.info("See # validate token in README")\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert not any(f.rule_id == "DJG073" for f in findings)
+
+
+def test_djg073_still_flags_access_token_in_message(tmp_path: Path) -> None:
+    p = tmp_path / "leak2.py"
+    p.write_text(
+        'import logging\nlog = logging.getLogger("x")\n'
+        'log.warning("Printing access token %s", t)\n',
+        encoding="utf-8",
+    )
+    findings = list(run_static_pattern_rules(tmp_path))
+    assert any(f.rule_id == "DJG073" for f in findings)
+
+
 def test_djg075_execute_variable_warn(tmp_path: Path) -> None:
     p = tmp_path / "dyn.py"
     p.write_text(

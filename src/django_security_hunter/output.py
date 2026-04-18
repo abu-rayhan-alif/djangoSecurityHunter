@@ -195,6 +195,7 @@ def _render_rich_report(console: Any, report: Report) -> None:
         if i:
             console.print()
         st = _severity_style(finding.severity)
+        border_style = _severity_panel_border_style(finding.severity)
         header = Text()
         header.append(f"{finding.severity}", style=st)
         header.append(" | ", style="dim")
@@ -214,11 +215,10 @@ def _render_rich_report(console: Any, report: Report) -> None:
             fix.append("Fix: ", style="bold dim")
             fix.append(finding.fix_hint.strip(), style="dim italic")
             body.append(fix)
-        border = st.split()[-1]
         console.print(
             Panel(
                 Group(*body),
-                border_style=border,
+                border_style=border_style,
                 box=_cli_panel_box(),
                 padding=(0, 1),
             )
@@ -354,6 +354,18 @@ def _severity_style(severity: str) -> str:
     s = severity.upper()
     if s == "CRITICAL":
         return "bold red"
+    if s == "HIGH":
+        return "red"
+    if s == "WARN":
+        return "yellow"
+    return "cyan"
+
+
+def _severity_panel_border_style(severity: str) -> str:
+    """Single Rich color name for Panel borders (avoid splitting compound styles on spaces)."""
+    s = severity.upper()
+    if s == "CRITICAL":
+        return "red"
     if s == "HIGH":
         return "red"
     if s == "WARN":

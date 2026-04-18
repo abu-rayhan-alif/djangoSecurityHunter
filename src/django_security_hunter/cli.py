@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import contextlib
 import json
-from pathlib import Path
+import logging
+import os
+import random
 import sys
+import tempfile
+import time
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import typer
 
 from .config import GuardConfig, load_config
 from .engine import run_profile, run_scan
+from .limits import MAX_TREND_HISTORY_JSON_BYTES
 from .models import VALID_SEVERITY_THRESHOLDS
 from .output import (
     as_console,
@@ -21,6 +28,8 @@ from .output import (
 
 app = typer.Typer(help="Django + DRF Security, Reliability and Performance Inspector")
 _DEFAULT_SEVERITY_WEIGHTS = {"INFO": 1, "WARN": 5, "HIGH": 15, "CRITICAL": 40}
+
+logger = logging.getLogger(__name__)
 
 
 def _emit_formatted_report(
@@ -113,6 +122,128 @@ def _parse_iso8601(value: str) -> datetime | None:
         return None
 
 
+_STALE_TREND_LOCK_MAX_AGE_S = 120.0
+
+
+def _trend_history_lock_path(history_file: Path) -> Path:
+    return history_file.parent / (history_file.name + ".lock")
+
+
+def _acquire_trend_history_oexcl_lock(lock_path: Path, *, timeout_s: float = 60.0) -> bool:
+    """Windows fallback: exclusive empty lock file (O_EXCL); stale files removed after timeout."""
+    start = time.monotonic()
+    while time.monotonic() - start < timeout_s:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                st = lock_path.stat()
+                if time.time() - st.st_mtime > _STALE_TREND_LOCK_MAX_AGE_S:
+                    lock_path.unlink(missing_ok=True)
+                    continue
+            except OSError:
+                pass
+            time.sleep(0.02 + random.random() * 0.03)
+    return False
+
+
+def _release_trend_history_oexcl_lock(lock_path: Path) -> None:
+    try:
+        lock_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> None:
+    """Write *text* to *path* atomically (same-directory temp file + os.replace)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        text=False,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding=encoding, newline="\n") as fh:
+            fh.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
+@contextlib.contextmanager
+def _trend_history_exclusive_lock(lock_path: Path, *, timeout_s: float = 60.0):
+    """Serialize trend history updates: fcntl.flock on Unix; O_EXCL lock file on Windows."""
+    if sys.platform == "win32":
+        ok = _acquire_trend_history_oexcl_lock(lock_path, timeout_s=timeout_s)
+        try:
+            yield ok
+        finally:
+            if ok:
+                _release_trend_history_oexcl_lock(lock_path)
+        return
+
+    import fcntl
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
+    acquired = False
+    try:
+        start = time.monotonic()
+        while time.monotonic() - start < timeout_s:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                time.sleep(0.02 + random.random() * 0.03)
+        yield acquired
+    finally:
+        if acquired:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+def _empty_trend_history_document() -> dict[str, object]:
+    return {"schema": "djangoguard.trend.v1", "entries": []}
+
+
+def _read_trend_history_file(history_file: Path) -> dict[str, object]:
+    """Load trend JSON with a byte cap before ``json.loads`` (pathological file safety)."""
+    try:
+        raw = history_file.read_bytes()
+    except OSError as exc:
+        logger.warning("Could not read trend history %s: %s", history_file, exc)
+        return _empty_trend_history_document()
+    if len(raw) > MAX_TREND_HISTORY_JSON_BYTES:
+        logger.warning(
+            "Trend history file %s exceeds %s bytes; ignoring contents",
+            history_file,
+            MAX_TREND_HISTORY_JSON_BYTES,
+        )
+        return _empty_trend_history_document()
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        logger.warning("Invalid trend history JSON in %s: %s", history_file, exc)
+        return _empty_trend_history_document()
+    if not isinstance(data, dict):
+        return _empty_trend_history_document()
+    return data
+
+
 def _compute_trend_from_history(
     entries: list[dict[str, object]], current_score: int
 ) -> dict[str, object]:
@@ -146,34 +277,40 @@ def _compute_trend_from_history(
 def _append_trend_history(
     history_file: Path, *, mode: str, generated_at: str, score: int, counts: dict[str, int]
 ) -> dict[str, object]:
-    history: dict[str, object] = {"schema": "djangoguard.trend.v1", "entries": []}
-    if history_file.exists():
-        try:
-            history = json.loads(history_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            history = {"schema": "djangoguard.trend.v1", "entries": []}
-    entries = history.get("entries")
-    if not isinstance(entries, list):
-        entries = []
-    prior_same_mode = [
-        e
-        for e in entries
-        if isinstance(e, dict) and str(e.get("mode", "")).strip() == mode
-    ]
-    trend = _compute_trend_from_history(prior_same_mode, score)
-    entries.append(
-        {
-            "generated_at": generated_at,
-            "mode": mode,
-            "score": score,
-            "counts": counts,
-        }
-    )
-    # Keep history file bounded.
-    history["entries"] = entries[-500:]
-    history_file.parent.mkdir(parents=True, exist_ok=True)
-    history_file.write_text(json.dumps(history, indent=2), encoding="utf-8")
-    return trend
+    lock_path = _trend_history_lock_path(history_file)
+    with _trend_history_exclusive_lock(lock_path) as locked:
+        if not locked:
+            typer.secho(
+                "Trend history lock not acquired; computed trend without persisting history.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+        history: dict[str, object] = _empty_trend_history_document()
+        if history_file.exists():
+            history = _read_trend_history_file(history_file)
+        entries = history.get("entries")
+        if not isinstance(entries, list):
+            entries = []
+        prior_same_mode = [
+            e
+            for e in entries
+            if isinstance(e, dict) and str(e.get("mode", "")).strip() == mode
+        ]
+        trend = _compute_trend_from_history(prior_same_mode, score)
+        entries.append(
+            {
+                "generated_at": generated_at,
+                "mode": mode,
+                "score": score,
+                "counts": counts,
+            }
+        )
+        # Keep history file bounded.
+        history["entries"] = entries[-500:]
+        if locked:
+            payload = json.dumps(history, indent=2)
+            _atomic_write_text(history_file, payload, encoding="utf-8")
+        return trend
 
 
 def _attach_score_and_trend(
@@ -278,15 +415,16 @@ def scan(
     ),
 ) -> None:
     project_root = project.resolve()
+    settings_eff = (settings or "").strip() or None
     _require_project_code_ack(
         allow_project_code=allow_project_code,
         mode="scan",
-        uses_settings=bool(settings),
+        uses_settings=bool(settings_eff),
     )
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_scan(
-        project_root=project_root, settings_module=settings, cfg=cfg
+        project_root=project_root, settings_module=settings_eff, cfg=cfg
     )
     _attach_score_and_trend(report, trend_history, cfg)
     print_django_settings_load_warning(
@@ -348,15 +486,16 @@ def profile(
     ),
 ) -> None:
     project_root = project.resolve()
+    settings_eff = (settings or "").strip() or None
     _require_project_code_ack(
         allow_project_code=allow_project_code,
         mode="profile",
-        uses_settings=bool(settings),
+        uses_settings=bool(settings_eff),
     )
     cfg = load_config(project_root)
     eff_threshold = _effective_threshold(threshold, cfg.severity_threshold)
     report = run_profile(
-        project_root=project_root, settings_module=settings, cfg=cfg
+        project_root=project_root, settings_module=settings_eff, cfg=cfg
     )
     _attach_score_and_trend(report, trend_history, cfg)
     _emit_formatted_report(

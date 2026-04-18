@@ -11,4 +11,7 @@ MAX_SCANNER_JSON_BYTES = 32 * 1024 * 1024
 # Avoid CPU/memory blowups on malicious or broken tool output
 MAX_FINDINGS_PER_SCANNER = 5000
 
+# ``--trend-history`` JSON file — cap read before ``json.loads`` (DoS-resistant)
+MAX_TREND_HISTORY_JSON_BYTES = 4 * 1024 * 1024
+
 

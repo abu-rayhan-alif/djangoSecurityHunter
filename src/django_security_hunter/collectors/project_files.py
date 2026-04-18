@@ -1,4 +1,13 @@
-"""Walk project Python files with size/skip rules (shared static scanners)."""
+"""Walk project files with size/skip rules for static collectors.
+
+Canonical imports for new scanners (do **not** re-export these from other collector modules):
+
+- ``read_py_source`` — bounded UTF-8 read of a single ``.py`` (or text) file
+- ``iter_project_glob`` — arbitrary glob under the project with junk-dir skips
+- ``iter_project_py_files`` — ``*.py`` with stricter skips (migrations/tests/fixtures)
+- ``iter_project_py_skip_migrations`` — ``*.py`` with glob skips only, excluding any path
+  segment named ``migrations`` (DRF serializers / URL scans)
+"""
 
 from __future__ import annotations
 
@@ -28,6 +37,25 @@ _SKIP_DIR_NAMES = frozenset(
     }
 )
 
+# Wider walk for static scanners that skip migrations/tests per-file themselves.
+_SKIP_DIR_NAMES_GLOB = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".eggs",
+        ".tox",
+        "dist",
+        "build",
+        ".mypy_cache",
+        ".pytest_cache",
+    }
+)
+
 
 def read_py_source(path: Path) -> str | None:
     """Read UTF-8 Python source, or None if missing, oversized, or invalid UTF-8."""
@@ -46,8 +74,27 @@ def read_py_source(path: Path) -> str | None:
 
 def iter_project_py_files(project_root: Path) -> Iterable[Path]:
     """Yield ``*.py`` under project_root (resolved; skips junk dirs; symlink-safe)."""
+    yield from iter_project_glob(project_root, "*.py", skip_names=_SKIP_DIR_NAMES)
+
+
+def iter_project_py_skip_migrations(project_root: Path) -> Iterable[Path]:
+    """Yield ``*.py`` like ``iter_project_glob``, dropping files under a ``migrations`` dir."""
+    for p in iter_project_glob(project_root, "*.py"):
+        if "migrations" in p.parts:
+            continue
+        yield p
+
+
+def iter_project_glob(
+    project_root: Path,
+    pattern: str,
+    *,
+    skip_names: frozenset[str] | None = None,
+) -> Iterable[Path]:
+    """Yield files matching *pattern* under *project_root* (symlink-safe; skips junk dirs)."""
+    names = skip_names if skip_names is not None else _SKIP_DIR_NAMES_GLOB
     root = project_root.resolve()
-    for p in root.rglob("*.py"):
+    for p in root.rglob(pattern):
         try:
             resolved = p.resolve()
         except OSError:
@@ -59,6 +106,6 @@ def iter_project_py_files(project_root: Path) -> Iterable[Path]:
             continue
         if "site-packages" in resolved.parts:
             continue
-        if any(part in _SKIP_DIR_NAMES for part in resolved.parts):
+        if any(part in names for part in resolved.parts):
             continue
         yield resolved

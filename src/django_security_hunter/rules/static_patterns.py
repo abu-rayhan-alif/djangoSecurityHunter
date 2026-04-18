@@ -42,10 +42,49 @@ _DJG073_SAFE_MESSAGE_RE = re.compile(
     r")",
 )
 
+# Docstring-style / comment-like log text (e.g. "# validate token format", "check token format").
+_DJG073_INSTRUCTIONAL_MESSAGE_RE = re.compile(
+    r"(?i)(?:"
+    r"^\s*#\s*|"
+    r"(?:^|[\s,;])(?:validate|check|verify|test|format|example|sample|fake|dummy)\s+token\b|"
+    r"\btoken\s+(?:format|validation|checker|example|type|test|string)\b"
+    r")",
+)
+
+
+def _djg073_normalize_message_for_scan(text: str) -> str:
+    """Strip comment-like segments from log message literals before regex heuristics.
+
+    Drops whole lines that look like ``# ...`` comments and trailing `` # ...`` tails
+    so instructional strings do not match bare ``token`` heuristics.
+    """
+    if not text:
+        return ""
+    kept: list[str] = []
+    for line in text.splitlines():
+        st = line.strip()
+        if st.startswith("#"):
+            continue
+        if " #" in line:
+            line = line.split(" #", 1)[0]
+        kept.append(line.rstrip())
+    return " ".join(x for x in kept if x).strip()
+
+
+# Avoid bare ``\\btoken\\b`` (matched "token" inside "validate token format", etc.).
+_DJG073_TOKEN_RISKY_RE = re.compile(
+    r"(?i)"
+    r"\b(?:access|refresh|auth|bearer|api|id|jwt|session|csrf)\s+token\b|"
+    r"\btoken\s*[:=]|"
+    r"\btoken\s+(?:value|string|secret|id|leak|leaked|exposed|expired|revoked|password)\b|"
+    r"\b(?:raw\s+)?token\s+(?:for|in|from|of|to)\b|"
+    r"\b(?:the|a|user|your)\s+token\b"
+)
+
 _DJG073_SENSITIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bpassword\b|\bpasswd\b", re.I),
     re.compile(r"\bsecret\b", re.I),
-    re.compile(r"\btoken\b", re.I),
+    _DJG073_TOKEN_RISKY_RE,
     re.compile(r"\bapi[_-]?key\b|\bapikey\b", re.I),
     re.compile(r"authorization\s*:", re.I),
     # Opaque-looking value after Bearer (skip "bearer authentication …" phrasing).
@@ -376,12 +415,17 @@ class _StaticVisitor(ast.NodeVisitor):
             return
         if not node.args:
             return
-        text = self._string_preview(node.args[0])
+        text = self._logging_message_preview(node.args[0])
         if not text:
             return
-        if _DJG073_SAFE_MESSAGE_RE.search(text):
+        scan = _djg073_normalize_message_for_scan(text)
+        if not scan:
             return
-        if not any(p.search(text) for p in _DJG073_SENSITIVE_PATTERNS):
+        if _DJG073_SAFE_MESSAGE_RE.search(scan):
+            return
+        if _DJG073_INSTRUCTIONAL_MESSAGE_RE.search(scan):
+            return
+        if not any(p.search(scan) for p in _DJG073_SENSITIVE_PATTERNS):
             return
         self._add(
             "DJG073",
@@ -396,6 +440,19 @@ class _StaticVisitor(ast.NodeVisitor):
     def _string_preview(node: ast.expr) -> str:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             return node.value
+        return ""
+
+    @staticmethod
+    def _logging_message_preview(node: ast.expr) -> str:
+        """Static segments of the log template (constants + f-string literal parts only)."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            parts: list[str] = []
+            for v in node.values:
+                if isinstance(v, ast.Constant) and isinstance(v.value, str):
+                    parts.append(v.value)
+            return "".join(parts)
         return ""
 
     def _check_hardcoded_secret_assign(self, node: ast.Assign) -> None:

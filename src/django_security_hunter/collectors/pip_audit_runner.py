@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import json
 import subprocess  # nosec B404
 import sys
@@ -10,6 +11,8 @@ from typing import Any
 
 from django_security_hunter.limits import MAX_FINDINGS_PER_SCANNER, MAX_SCANNER_JSON_BYTES
 from django_security_hunter.models import Finding
+
+logger = logging.getLogger(__name__)
 
 _TIMEOUT_SEC = 180
 
@@ -108,6 +111,7 @@ def run_pip_audit(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
     """Execute ``pip-audit --format json`` in ``project_root``."""
     root = project_root.resolve()
     cmd = [sys.executable, "-m", "pip_audit", "--format", "json"]
+    logger.debug("Running pip-audit: cwd=%s", root)
     try:
         proc = subprocess.run(  # nosec B603
             cmd,
@@ -119,17 +123,31 @@ def run_pip_audit(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
             timeout=_TIMEOUT_SEC,
             check=False,
         )
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
+        logger.warning("pip-audit subprocess failed (python not found): %s", exc)
         return [], {"status": "error", "reason": "python_not_found"}
     except subprocess.TimeoutExpired:
+        logger.warning("pip-audit timed out after %s seconds", _TIMEOUT_SEC)
         return [], {"status": "error", "reason": "timeout"}
+    except OSError as exc:
+        logger.warning("pip-audit subprocess failed (OS error): %s", exc)
+        return [], {"status": "error", "reason": "subprocess_os_error", "detail": str(exc)[:500]}
 
     out = proc.stdout or ""
     if len(out) > MAX_SCANNER_JSON_BYTES:
+        logger.warning(
+            "pip-audit JSON output exceeded %s bytes; skipping parse",
+            MAX_SCANNER_JSON_BYTES,
+        )
         return [], {"status": "error", "reason": "output_too_large"}
 
     if proc.returncode != 0 and not out.strip():
         err = (proc.stderr or proc.stdout or "")[:500]
+        logger.warning(
+            "pip-audit failed (exit_code=%s, no stdout): %s",
+            proc.returncode,
+            err or "(empty)",
+        )
         return [], {
             "status": "error",
             "reason": "pip_audit_failed",
@@ -139,16 +157,57 @@ def run_pip_audit(project_root: Path) -> tuple[list[Finding], dict[str, Any]]:
 
     try:
         data = json.loads(out or "{}")
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        logger.warning("pip-audit returned invalid JSON: %s", exc)
         return [], {"status": "error", "reason": "invalid_json"}
 
     art = _dependency_report_path(root)
-    findings = findings_from_pip_audit_json(data, artifact_path=art)
+    if isinstance(data, list):
+        if len(data) > 0:
+            logger.warning(
+                "pip-audit JSON is a non-empty list at root; expected an object with "
+                "'dependencies' (first element type=%s)",
+                type(data[0]).__name__,
+            )
+            return [], {
+                "status": "error",
+                "reason": "unexpected_json_root_list",
+                "exit_code": proc.returncode,
+            }
+        findings: list[Finding] = []
+    elif isinstance(data, dict):
+        deps = data.get("dependencies")
+        if deps is not None and not isinstance(deps, list):
+            logger.warning(
+                "pip-audit JSON key 'dependencies' is not a list (got %s); cannot map findings",
+                type(deps).__name__,
+            )
+            return [], {
+                "status": "error",
+                "reason": "invalid_dependencies_shape",
+                "exit_code": proc.returncode,
+            }
+        findings = findings_from_pip_audit_json(data, artifact_path=art)
+    else:
+        logger.warning(
+            "pip-audit JSON root has unexpected type %s; cannot map findings",
+            type(data).__name__,
+        )
+        return [], {
+            "status": "error",
+            "reason": "invalid_json_root",
+            "exit_code": proc.returncode,
+        }
     meta: dict[str, Any] = {
         "status": "ok",
         "exit_code": proc.returncode,
         "finding_count": len(findings),
     }
+    logger.debug(
+        "pip-audit finished exit_code=%s finding_count=%s",
+        proc.returncode,
+        len(findings),
+    )
     return findings, meta
 
 

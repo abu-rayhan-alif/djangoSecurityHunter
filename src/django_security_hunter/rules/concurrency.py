@@ -44,6 +44,11 @@ def _chain_has_objects_manager(expr: ast.expr) -> bool:
 
 
 def _orm_queryset_iter_terminal(expr: ast.expr) -> str | None:
+    # Outermost `.iterator()` returns a Python iterator, not a QuerySet; do not treat
+    # like `.all()`/`.filter()` for loop heuristics (avoids false positives).
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute):
+        if expr.func.attr == "iterator":
+            return None
     cur: ast.expr | None = expr
     last: str | None = None
     while isinstance(cur, ast.Call):
@@ -53,7 +58,7 @@ def _orm_queryset_iter_terminal(expr: ast.expr) -> str | None:
             cur = fn.value
             continue
         break
-    if last not in {"all", "filter", "exclude", "iterator"}:
+    if last not in {"all", "filter", "exclude"}:
         return None
     return last if _chain_has_objects_manager(expr) else None
 

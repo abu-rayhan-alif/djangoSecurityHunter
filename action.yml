@@ -7,8 +7,10 @@ inputs:
     required: false
     default: '.'
   settings:
-    description: 'Django settings module (e.g. config.settings)'
-    required: true
+    description: >-
+      Optional Django settings module (e.g. config.settings). Omit for static/file-based
+      rules only; DJG001-DJG012 and other settings-backed rules need this plus deps/env.
+    required: false
   threshold:
     description: 'Severity threshold (INFO, WARN, HIGH, CRITICAL)'
     required: false
@@ -17,15 +19,14 @@ inputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
+  env:
+    INPUT_SETTINGS: ${{ inputs.settings }}
   args:
     - 'scan'
     - '--project'
     - ${{ inputs.project }}
-    - '--settings'
-    - ${{ inputs.settings }}
     - '--threshold'
     - ${{ inputs.threshold }}
-    - '--allow-project-code'
     - '--format'
     - 'sarif'
     - '--output'

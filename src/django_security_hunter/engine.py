@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .config import GuardConfig, load_config
 from .models import Report
+from .plugins import run_scan_plugins
 from .rules.concurrency import run_concurrency_rules
 from .rules.django_settings import run_django_settings_scan
 from .rules.authz_heuristics import run_authz_heuristic_rules
@@ -15,11 +16,20 @@ from .rules.profiling import run_profiling_rules
 from .rules.static_patterns import run_static_pattern_rules
 
 
+def _normalize_settings_module(name: str | None) -> str | None:
+    """Strip surrounding whitespace; empty after strip becomes ``None``."""
+    if name is None:
+        return None
+    s = name.strip()
+    return s or None
+
+
 def run_scan(
     project_root: Path,
     settings_module: str | None = None,
     cfg: GuardConfig | None = None,
 ) -> Report:
+    settings_module = _normalize_settings_module(settings_module)
     cfg = cfg or load_config(project_root)
     findings = []
     dj_findings, dj_ctx = run_django_settings_scan(project_root, settings_module)
@@ -36,12 +46,16 @@ def run_scan(
     )
     findings.extend(ext_findings)
 
+    plugin_findings, plugin_meta = run_scan_plugins(project_root, cfg, dj_ctx)
+    findings.extend(plugin_findings)
+
     metadata: dict = {
         "project_root": str(project_root),
         "settings_module": settings_module,
         "runner": "django-settings-scan",
         "django_settings_loaded": bool(dj_ctx.get("loaded")),
         "integrations": integrations_meta,
+        "scan_plugins": plugin_meta,
     }
     err_detail: str | None = None
     if not dj_ctx.get("loaded"):
@@ -63,6 +77,7 @@ def run_profile(
     settings_module: str | None = None,
     cfg: GuardConfig | None = None,
 ) -> Report:
+    settings_module = _normalize_settings_module(settings_module)
     cfg = cfg or load_config(project_root)
     findings, profile_bundle = run_profiling_rules(project_root, settings_module, cfg)
     profile = profile_bundle.get("profile") or {}

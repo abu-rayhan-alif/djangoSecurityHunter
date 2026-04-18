@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from django_security_hunter.validation import is_valid_django_settings_module
+
+logger = logging.getLogger(__name__)
 
 
 def _str_list_setting(settings: Any, name: str) -> list[str]:
@@ -107,9 +110,14 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
     }
     if not module:
         base["skip_reason"] = "no_settings_module"
+        logger.debug("Django settings skipped: no_settings_module (project_root=%s)", root)
         return base
 
     if not is_valid_django_settings_module(module):
+        logger.warning(
+            "Invalid Django settings module string %r; skipping settings load",
+            module,
+        )
         return {
             "project_root": str(root),
             "settings_module": None,
@@ -177,8 +185,31 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
                     **_rest_framework_lists(settings),
                 }
             )
+            logger.debug(
+                "Django settings loaded successfully (module=%s, project_root=%s)",
+                module,
+                root,
+            )
+            return base
+        except ModuleNotFoundError as exc:
+            hint = ""
+            if exc.name in ("django", "Django"):
+                hint = " Install Django in this environment or run without --settings."
+            logger.warning(
+                "Django settings load failed: missing module %r (%s).%s",
+                exc.name,
+                exc,
+                hint,
+            )
+            base["load_error"] = str(exc)
+            base["load_error_kind"] = "module_not_found"
             return base
         except Exception as exc:
+            logger.warning(
+                "Django settings failed to load (module=%s): %s",
+                module,
+                exc,
+            )
             base["load_error"] = str(exc)
             return base
     finally:
@@ -186,4 +217,7 @@ def load_settings_context(project_root: Path, settings_module: str | None) -> di
             try:
                 sys.path.remove(root_str)
             except ValueError:
-                pass
+                logger.debug(
+                    "sys.path cleanup: %s was not in sys.path (already removed)",
+                    root_str,
+                )

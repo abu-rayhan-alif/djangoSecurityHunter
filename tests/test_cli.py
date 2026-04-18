@@ -116,6 +116,27 @@ def test_profile_requires_gate(tmp_path: Path) -> None:
     assert "Safety gate" in (result.stdout + (result.stderr or ""))
 
 
+def test_scan_trend_history_oversize_file_is_ignored(tmp_path: Path) -> None:
+    from django_security_hunter.limits import MAX_TREND_HISTORY_JSON_BYTES
+
+    hist = tmp_path / "trend.json"
+    hist.write_bytes(b"{" + b"0" * (MAX_TREND_HISTORY_JSON_BYTES + 1))
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--format",
+            "json",
+            "--project",
+            str(tmp_path),
+            "--trend-history",
+            str(hist),
+        ],
+    )
+    assert result.exit_code == 0
+    assert '"security_trend"' in result.stdout
+
+
 def test_scan_rejects_invalid_threshold(tmp_path: Path) -> None:
     result = runner.invoke(
         app,

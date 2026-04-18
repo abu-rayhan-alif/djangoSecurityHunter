@@ -61,6 +61,14 @@ def _for_target_names(node: ast.expr) -> set[str]:
 
 
 def _iter_is_queryset_iteration(node: ast.expr) -> bool:
+    """True when the for-loop iterates a QuerySet via .objects.all/filter/exclude only.
+
+    Loops over ``.iterator()`` are excluded: that returns a Python iterator / server-side
+    cursor stream, not a QuerySet — the N+1 static heuristic targets direct queryset iteration.
+    """
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        if node.func.attr == "iterator":
+            return False
     if not isinstance(node, ast.Call):
         return False
     fn = node.func
@@ -200,6 +208,11 @@ def _tests_to_findings(tests: list[dict[str, Any]], cfg: GuardConfig) -> list[Fi
     return findings
 
 
+def _collect_runtime_query_metrics(project_root: Path) -> dict[str, Any]:
+    """Minimal slot merged into ``runtime_query_metrics`` (reserved for future hooks)."""
+    return {"project_root": str(project_root.resolve()), "tests": []}
+
+
 def _read_profile_json(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -264,6 +277,7 @@ def collect_runtime_query_profile(
     if os.environ.get("DJANGOGUARD_SKIP_PYTEST_PROFILE", "").strip() == "1":
         summary = _build_profile_summary([], cfg)
         summary["query_runtime"] = "skipped"
+        summary["runtime_query_metrics"] = _collect_runtime_query_metrics(project_root)
         return [], summary
 
     fd, out_path = tempfile.mkstemp(suffix=".json", prefix="djg_profile_")
@@ -301,6 +315,7 @@ def collect_runtime_query_profile(
 
     summary = _build_profile_summary(tests, cfg)
     summary["query_runtime"] = runner
+    summary["runtime_query_metrics"] = _collect_runtime_query_metrics(project_root)
     findings = _tests_to_findings(tests, cfg)
     return findings, summary
 
